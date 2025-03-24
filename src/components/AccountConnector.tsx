@@ -43,6 +43,18 @@ const AccountConnector = ({ className }: AccountConnectorProps) => {
       name: "Glassdoor",
       icon: Globe,
       connected: false
+    },
+    {
+      id: "naukri",
+      name: "Naukri",
+      icon: Globe,
+      connected: false
+    },
+    {
+      id: "internshala",
+      name: "Internshala",
+      icon: Globe,
+      connected: false
     }
   ]);
 
@@ -85,7 +97,9 @@ const AccountConnector = ({ className }: AccountConnectorProps) => {
                   platform.id === "linkedin" && "text-blue-600 bg-blue-50",
                   platform.id === "gmail" && "text-red-500 bg-red-50",
                   platform.id === "indeed" && "text-blue-500 bg-blue-50",
-                  platform.id === "glassdoor" && "text-green-600 bg-green-50"
+                  platform.id === "glassdoor" && "text-green-600 bg-green-50",
+                  platform.id === "naukri" && "text-blue-700 bg-blue-50",
+                  platform.id === "internshala" && "text-orange-500 bg-orange-50"
                 )} />
                 <div>
                   <p className="font-medium">{platform.name}</p>
