@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BriefcaseIcon, MapPin, Building, Clock, DollarSign, Heart, X, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 interface JobCardProps {
   job: {
@@ -168,9 +169,11 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
             variant="outline"
             size="lg"
             className="rounded-full"
+            as={Link}
+            to="/ai-agent"
           >
             <ExternalLink className="h-5 w-5 text-muted-foreground" />
-            <span className="ml-1">Apply Manually</span>
+            <span className="ml-1">AI Agent</span>
           </Button>
           
           <Button 
