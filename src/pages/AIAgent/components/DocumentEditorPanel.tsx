@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import DocumentTabs from "./DocumentTabs";
 import AnalysisTabs from "./AnalysisTabs";
+import JobFilters from "@/components/JobFilters";
 
 interface DocumentEditorPanelProps {
   activeTab: string;
@@ -25,6 +26,12 @@ const DocumentEditorPanel = ({
 }: DocumentEditorPanelProps) => {
   return (
     <div className="lg:col-span-2">
+      <Card className="neo-card mb-6">
+        <CardHeader className="pb-0">
+          <JobFilters onFilterChange={(filters) => console.log("Filters changed:", filters)} />
+        </CardHeader>
+      </Card>
+
       <Card className="neo-card">
         <CardHeader className="pb-2">
           <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className="w-full">
