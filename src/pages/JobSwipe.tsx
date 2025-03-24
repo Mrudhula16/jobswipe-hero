@@ -4,13 +4,18 @@ import JobCard from "@/components/JobCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Command, CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { BriefcaseIcon, Filter, ArrowLeft, ArrowRight, Bookmark, Clock, Zap, Building, MapPin, GraduationCap, Banknote, Timer, Globe, CalendarDays, Search, X, Heart } from "lucide-react";
+import { 
+  BriefcaseIcon, Filter, ArrowLeft, ArrowRight, Bookmark, Clock, Zap, Building, MapPin, 
+  GraduationCap, Banknote, Timer, Globe, CalendarDays, Search, X, Heart, ChevronDown
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const JobSwipe = () => {
   const { toast } = useToast();
@@ -20,6 +25,16 @@ const JobSwipe = () => {
   const [activeTab, setActiveTab] = useState("recommended");
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [animatingCardId, setAnimatingCardId] = useState<string | null>(null);
+  const [filters, setFilters] = useState({
+    jobType: [] as string[],
+    experienceLevel: "",
+    datePosted: "",
+    salary: "",
+    location: "",
+    industry: "",
+    isRemote: false,
+    isHybrid: false,
+  });
 
   const jobs = [
     {
@@ -120,7 +135,125 @@ const JobSwipe = () => {
     setCurrentIndex(prevIndex => prevIndex - 1);
   };
 
+  const handleFilterChange = (category: string, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [category]: value
+    }));
+  };
+
   const noMoreCards = currentIndex >= jobs.length;
+
+  const datePostedOptions = [
+    { value: "past24h", label: "Past 24 hours" },
+    { value: "past3d", label: "Past 3 days" },
+    { value: "pastWeek", label: "Past week" },
+    { value: "pastMonth", label: "Past month" },
+    { value: "any", label: "Any time" }
+  ];
+
+  const experienceLevelOptions = [
+    { value: "internship", label: "Internship" },
+    { value: "entry", label: "Entry level" },
+    { value: "associate", label: "Associate" },
+    { value: "mid", label: "Mid-Senior level" },
+    { value: "director", label: "Director" },
+    { value: "executive", label: "Executive" }
+  ];
+
+  const salaryRangeOptions = [
+    { value: "0-50k", label: "$0 - $50,000" },
+    { value: "50k-75k", label: "$50,000 - $75,000" },
+    { value: "75k-100k", label: "$75,000 - $100,000" },
+    { value: "100k-150k", label: "$100,000 - $150,000" },
+    { value: "150k-200k", label: "$150,000 - $200,000" },
+    { value: "200k+", label: "$200,000+" }
+  ];
+
+  const industryOptions = [
+    { value: "tech", label: "Information Technology" },
+    { value: "healthcare", label: "Healthcare" },
+    { value: "finance", label: "Finance" },
+    { value: "education", label: "Education" },
+    { value: "marketing", label: "Marketing & Advertising" },
+    { value: "retail", label: "Retail & Consumer Goods" },
+    { value: "manufacturing", label: "Manufacturing" },
+    { value: "media", label: "Media & Communications" },
+    { value: "nonprofit", label: "Nonprofit" },
+    { value: "realestate", label: "Real Estate" },
+    { value: "hospitality", label: "Hospitality & Tourism" },
+    { value: "construction", label: "Construction" },
+    { value: "legal", label: "Legal Services" },
+    { value: "consulting", label: "Consulting" },
+    { value: "transportation", label: "Transportation & Logistics" },
+    { value: "energy", label: "Energy & Utilities" },
+    { value: "agriculture", label: "Agriculture" },
+    { value: "arts", label: "Arts & Entertainment" },
+    { value: "government", label: "Government" }
+  ];
+
+  const jobTypeOptions = [
+    { value: "fulltime", label: "Full-time" },
+    { value: "parttime", label: "Part-time" },
+    { value: "contract", label: "Contract" },
+    { value: "temporary", label: "Temporary" },
+    { value: "internship", label: "Internship" },
+    { value: "volunteer", label: "Volunteer" },
+    { value: "apprenticeship", label: "Apprenticeship" }
+  ];
+
+  const jobFunctionOptions = [
+    { value: "engineering", label: "Engineering" },
+    { value: "sales", label: "Sales" },
+    { value: "marketing", label: "Marketing" },
+    { value: "product", label: "Product Management" },
+    { value: "design", label: "Design" },
+    { value: "customerservice", label: "Customer Service" },
+    { value: "hr", label: "Human Resources" },
+    { value: "finance", label: "Finance" },
+    { value: "operations", label: "Operations" },
+    { value: "it", label: "Information Technology" },
+    { value: "legal", label: "Legal" },
+    { value: "research", label: "Research" },
+    { value: "education", label: "Education" },
+    { value: "healthcare", label: "Healthcare Services" },
+    { value: "administrative", label: "Administrative" },
+    { value: "consulting", label: "Consulting" },
+    { value: "executive", label: "Executive" }
+  ];
+
+  const skillsOptions = [
+    { value: "javascript", label: "JavaScript" },
+    { value: "python", label: "Python" },
+    { value: "java", label: "Java" },
+    { value: "react", label: "React" },
+    { value: "node", label: "Node.js" },
+    { value: "sql", label: "SQL" },
+    { value: "figma", label: "Figma" },
+    { value: "excel", label: "Microsoft Excel" },
+    { value: "communication", label: "Communication" },
+    { value: "projectmanagement", label: "Project Management" },
+    { value: "leadership", label: "Leadership" },
+    { value: "marketing", label: "Marketing" },
+    { value: "sales", label: "Sales" },
+    { value: "analytics", label: "Analytics" },
+    { value: "cloud", label: "Cloud Computing" },
+    { value: "devops", label: "DevOps" },
+    { value: "android", label: "Android Development" },
+    { value: "ios", label: "iOS Development" },
+    { value: "ux", label: "User Experience (UX)" },
+    { value: "ui", label: "User Interface (UI)" }
+  ];
+
+  const educationOptions = [
+    { value: "highschool", label: "High School" },
+    { value: "associate", label: "Associate's Degree" },
+    { value: "bachelor", label: "Bachelor's Degree" },
+    { value: "master", label: "Master's Degree" },
+    { value: "doctorate", label: "Doctorate" },
+    { value: "professional", label: "Professional Degree" },
+    { value: "certification", label: "Professional Certification" }
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -156,18 +289,64 @@ const JobSwipe = () => {
                       <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      <input 
-                        type="text" 
-                        placeholder="City, state, or zip code" 
-                        className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <input 
+                            type="text" 
+                            placeholder="City, state, or zip code" 
+                            className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+                            readOnly
+                          />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search location..." />
+                            <CommandList>
+                              <CommandEmpty>No locations found.</CommandEmpty>
+                              <CommandGroup heading="Popular Cities">
+                                <CommandItem onSelect={() => handleFilterChange("location", "Remote")}>
+                                  Remote
+                                </CommandItem>
+                                <CommandItem onSelect={() => handleFilterChange("location", "New York, NY")}>
+                                  New York, NY
+                                </CommandItem>
+                                <CommandItem onSelect={() => handleFilterChange("location", "San Francisco, CA")}>
+                                  San Francisco, CA
+                                </CommandItem>
+                                <CommandItem onSelect={() => handleFilterChange("location", "Seattle, WA")}>
+                                  Seattle, WA
+                                </CommandItem>
+                                <CommandItem onSelect={() => handleFilterChange("location", "Austin, TX")}>
+                                  Austin, TX
+                                </CommandItem>
+                                <CommandItem onSelect={() => handleFilterChange("location", "Chicago, IL")}>
+                                  Chicago, IL
+                                </CommandItem>
+                                <CommandItem onSelect={() => handleFilterChange("location", "Boston, MA")}>
+                                  Boston, MA
+                                </CommandItem>
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <Toggle size="sm" aria-label="Toggle remote">
+                      <Toggle 
+                        size="sm" 
+                        aria-label="Toggle remote"
+                        pressed={filters.isRemote}
+                        onPressedChange={(pressed) => handleFilterChange("isRemote", pressed)}
+                      >
                         <Globe className="h-3.5 w-3.5 mr-1" />
                         <span className="text-xs">Remote only</span>
                       </Toggle>
-                      <Toggle size="sm" aria-label="Toggle hybrid">
+                      <Toggle 
+                        size="sm" 
+                        aria-label="Toggle hybrid"
+                        pressed={filters.isHybrid}
+                        onPressedChange={(pressed) => handleFilterChange("isHybrid", pressed)}
+                      >
                         <Building className="h-3.5 w-3.5 mr-1" />
                         <span className="text-xs">Hybrid</span>
                       </Toggle>
@@ -176,101 +355,216 @@ const JobSwipe = () => {
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Job Type</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <ToggleGroup type="multiple">
-                        <ToggleGroupItem value="full-time" size="sm" className="h-8 text-xs justify-center">
-                          Full-time
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="part-time" size="sm" className="h-8 text-xs justify-center">
-                          Part-time
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="contract" size="sm" className="h-8 text-xs justify-center">
-                          Contract
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="internship" size="sm" className="h-8 text-xs justify-center">
-                          Internship
-                        </ToggleGroupItem>
-                      </ToggleGroup>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full justify-between">
+                          <span>{filters.jobType.length ? `${filters.jobType.length} selected` : "Select job types"}</span>
+                          <ChevronDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56 bg-background border border-border shadow-md" align="start">
+                        <DropdownMenuLabel>Job Types</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
+                          {jobTypeOptions.map((option) => (
+                            <DropdownMenuItem 
+                              key={option.value}
+                              className="cursor-pointer"
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                const newJobTypes = filters.jobType.includes(option.value)
+                                  ? filters.jobType.filter(t => t !== option.value)
+                                  : [...filters.jobType, option.value];
+                                handleFilterChange("jobType", newJobTypes);
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className={`w-4 h-4 border rounded flex items-center justify-center ${filters.jobType.includes(option.value) ? 'bg-primary border-primary' : 'border-input'}`}>
+                                  {filters.jobType.includes(option.value) && <Check className="h-3 w-3 text-white" />}
+                                </div>
+                                <span>{option.label}</span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Experience Level</label>
-                    <Select>
+                    <Select 
+                      value={filters.experienceLevel} 
+                      onValueChange={(value) => handleFilterChange("experienceLevel", value)}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select level" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="entry">Entry Level</SelectItem>
-                        <SelectItem value="associate">Associate</SelectItem>
-                        <SelectItem value="mid">Mid-Level</SelectItem>
-                        <SelectItem value="senior">Senior</SelectItem>
-                        <SelectItem value="executive">Executive</SelectItem>
+                      <SelectContent className="bg-popover border border-border shadow-md">
+                        <SelectGroup>
+                          <SelectLabel>Experience Level</SelectLabel>
+                          {experienceLevelOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Salary Range</label>
-                    <Select>
+                    <Select
+                      value={filters.salary}
+                      onValueChange={(value) => handleFilterChange("salary", value)}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select range" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0-50k">$0 - $50,000</SelectItem>
-                        <SelectItem value="50k-75k">$50,000 - $75,000</SelectItem>
-                        <SelectItem value="75k-100k">$75,000 - $100,000</SelectItem>
-                        <SelectItem value="100k-150k">$100,000 - $150,000</SelectItem>
-                        <SelectItem value="150k+">$150,000+</SelectItem>
+                      <SelectContent className="bg-popover border border-border shadow-md">
+                        <SelectGroup>
+                          <SelectLabel>Salary Range</SelectLabel>
+                          {salaryRangeOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Date Posted</label>
-                    <Select>
+                    <Select
+                      value={filters.datePosted}
+                      onValueChange={(value) => handleFilterChange("datePosted", value)}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Any time" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="today">Past 24 hours</SelectItem>
-                        <SelectItem value="week">Past week</SelectItem>
-                        <SelectItem value="month">Past month</SelectItem>
-                        <SelectItem value="any">Any time</SelectItem>
+                      <SelectContent className="bg-popover border border-border shadow-md">
+                        <SelectGroup>
+                          <SelectLabel>Date Posted</SelectLabel>
+                          {datePostedOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Industry</label>
-                    <Select>
+                    <Select
+                      value={filters.industry}
+                      onValueChange={(value) => handleFilterChange("industry", value)}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select industry" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="tech">Technology</SelectItem>
-                        <SelectItem value="healthcare">Healthcare</SelectItem>
-                        <SelectItem value="finance">Finance</SelectItem>
-                        <SelectItem value="education">Education</SelectItem>
-                        <SelectItem value="retail">Retail</SelectItem>
-                        <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                      <SelectContent className="bg-popover border border-border shadow-md max-h-80">
+                        <SelectGroup>
+                          <SelectLabel>Industry</SelectLabel>
+                          {industryOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Job Function</label>
+                    <Select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select job function" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border border-border shadow-md max-h-80">
+                        <SelectGroup>
+                          <SelectLabel>Job Function</SelectLabel>
+                          {jobFunctionOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Education</label>
+                    <Select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select education" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border border-border shadow-md">
+                        <SelectGroup>
+                          <SelectLabel>Education</SelectLabel>
+                          {educationOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </div>
                   
                   <div className="pt-2">
-                    <Button variant="outline" size="sm" className="w-full justify-between">
-                      <div className="flex items-center gap-2">
-                        <GraduationCap className="h-4 w-4" />
-                        <span>Education & Skills</span>
-                      </div>
-                      <span className="text-xs bg-secondary rounded-full px-2 py-0.5">+</span>
-                    </Button>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full justify-between">
+                          <div className="flex items-center gap-2">
+                            <GraduationCap className="h-4 w-4" />
+                            <span>Skills</span>
+                          </div>
+                          <span className="text-xs bg-secondary rounded-full px-2 py-0.5">+</span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search skills..." />
+                          <CommandList className="max-h-80">
+                            <CommandEmpty>No skills found.</CommandEmpty>
+                            <CommandGroup heading="Popular Skills">
+                              {skillsOptions.map((skill) => (
+                                <CommandItem key={skill.value}>
+                                  {skill.label}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 
                 <div className="flex items-center justify-between gap-4 pt-2">
-                  <Button variant="outline" size="sm" className="flex-1">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={() => {
+                      setFilters({
+                        jobType: [],
+                        experienceLevel: "",
+                        datePosted: "",
+                        salary: "",
+                        location: "",
+                        industry: "",
+                        isRemote: false,
+                        isHybrid: false,
+                      });
+                    }}
+                  >
                     Reset
                   </Button>
                   <Button size="sm" className="flex-1">
