@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import JobCard from "@/components/JobCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { BriefcaseIcon, Filter, ArrowLeft, ArrowRight, Bookmark, Clock, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
