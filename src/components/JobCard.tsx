@@ -62,14 +62,11 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
         type: "spring", 
         stiffness: 300, 
         damping: 30,
-        // Adding a longer duration and making sure animation completes
         duration: 0.5,
         ease: "easeOut"
       }}
-      // Add onAnimationComplete to ensure proper card removal
       onAnimationComplete={() => {
         if (exitX !== null) {
-          // Reset animation variables if needed
           x.set(0);
         }
       }}
@@ -153,7 +150,7 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
           </div>
         </div>
         
-        {/* Action Buttons - Updated to have exactly three buttons */}
+        {/* Action Buttons */}
         <div className="p-5 pt-0 flex justify-between">
           <Button 
             variant="destructive" 

@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import JobCard from "@/components/JobCard";
@@ -20,7 +19,6 @@ const JobSwipe = () => {
   const swipeHistoryRef = useRef<{ id: string; direction: "left" | "right" }[]>([]);
   const [activeTab, setActiveTab] = useState("recommended");
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  // Add state to manage animation exit to prevent twitching
   const [animatingCardId, setAnimatingCardId] = useState<string | null>(null);
 
   const jobs = [
@@ -87,6 +85,8 @@ const JobSwipe = () => {
   ];
 
   const handleSwipe = (direction: "left" | "right") => {
+    if (animatingCardId) return; // Prevent multiple swipes while animating
+    
     const jobId = jobs[currentIndex].id;
     
     // Set the currently animating card
@@ -109,7 +109,7 @@ const JobSwipe = () => {
       );
       // Reset the animating card ID
       setAnimatingCardId(null);
-    }, 500); // Match this with the animation duration
+    }, 500); // Match this with the animation duration in JobCard
   };
 
   const handleUndo = () => {
