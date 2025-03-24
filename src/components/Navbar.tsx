@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { 
@@ -32,7 +31,7 @@ const Navbar = () => {
               className="flex items-center space-x-2"
             >
               <BriefcaseIcon className="h-8 w-8 text-primary" />
-              <span className="text-xl font-semibold">JobSwipe</span>
+              <span className="text-xl font-semibold">Employed</span>
             </Link>
           </div>
           
