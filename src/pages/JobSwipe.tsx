@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import JobCard from "@/components/JobCard";
@@ -9,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Command, CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { BriefcaseIcon, Filter, ArrowLeft, ArrowRight, Bookmark, Clock, Zap, Building, MapPin, GraduationCap, Banknote, Timer, Globe, CalendarDays, Search } from "lucide-react";
+import { BriefcaseIcon, Filter, ArrowLeft, ArrowRight, Bookmark, Clock, Zap, Building, MapPin, GraduationCap, Banknote, Timer, Globe, CalendarDays, Search, X, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,7 +20,6 @@ const JobSwipe = () => {
   const [activeTab, setActiveTab] = useState("recommended");
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
-  // Sample job data
   const jobs = [
     {
       id: "1",
@@ -120,7 +118,6 @@ const JobSwipe = () => {
       
       <main className="max-w-7xl mx-auto px-4 pt-8 pb-16">
         <div className="flex flex-col md:flex-row gap-8">
-          {/* Sidebar with enhanced filters */}
           <div className="w-full md:w-80 space-y-6">
             <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
               <div className="p-4 border-b border-border bg-secondary/50 flex items-center justify-between">
@@ -321,7 +318,6 @@ const JobSwipe = () => {
             </div>
           </div>
           
-          {/* Main Content */}
           <div className="flex-1">
             <Tabs defaultValue="recommended" value={activeTab} onValueChange={setActiveTab} className="mb-6">
               <TabsList className="bg-card border border-border shadow-sm">
@@ -379,32 +375,23 @@ const JobSwipe = () => {
                           })}
                       </AnimatePresence>
                       
-                      {/* Control buttons */}
                       <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-8">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-14 w-14 rounded-full border-2 border-border"
-                          onClick={handleUndo}
-                          disabled={currentIndex === 0 || swipeHistoryRef.current.length === 0}
-                        >
-                          <ArrowLeft className="h-6 w-6" />
-                        </Button>
                         <Button
                           variant="destructive"
                           size="icon"
                           className="h-14 w-14 rounded-full"
                           onClick={() => handleSwipe("left")}
                         >
-                          <ArrowLeft className="h-6 w-6" />
+                          <X className="h-6 w-6" />
                         </Button>
+                        
                         <Button
                           variant="default"
                           size="icon"
                           className="h-14 w-14 rounded-full bg-green-500 hover:bg-green-600"
                           onClick={() => handleSwipe("right")}
                         >
-                          <ArrowRight className="h-6 w-6" />
+                          <Heart className="h-6 w-6" />
                         </Button>
                       </div>
                     </>

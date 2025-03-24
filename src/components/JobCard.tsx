@@ -4,7 +4,7 @@ import { motion, useMotionValue, useTransform } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BriefcaseIcon, MapPin, Building, Clock, DollarSign, Heart, X, ThumbsUp } from "lucide-react";
+import { BriefcaseIcon, MapPin, Building, Clock, DollarSign, Heart, X, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface JobCardProps {
@@ -139,7 +139,7 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
           </div>
         </div>
         
-        {/* Action Buttons */}
+        {/* Action Buttons - Updated to have exactly three buttons */}
         <div className="p-5 pt-0 flex justify-between">
           <Button 
             variant="destructive" 
@@ -158,7 +158,8 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
             size="lg"
             className="rounded-full"
           >
-            <ThumbsUp className="h-5 w-5 text-muted-foreground" />
+            <ExternalLink className="h-5 w-5 text-muted-foreground" />
+            <span className="ml-1">Apply Manually</span>
           </Button>
           
           <Button 
