@@ -11,7 +11,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
-import { FileUpload, FileText, Edit, Briefcase, CheckCircle2, Star, ArrowRight, RefreshCw, Download } from "lucide-react";
+import { Upload, FileText, Edit, Briefcase, CheckCircle2, Star, ArrowRight, RefreshCw, Download } from "lucide-react";
 import { motion } from "framer-motion";
 
 const AIAgent = () => {
@@ -275,7 +275,7 @@ John Doe`;
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button variant="outline" size="sm">
-                            <FileUpload className="h-4 w-4 mr-2" />
+                            <Upload className="h-4 w-4 mr-2" />
                             Upload
                           </Button>
                         </DialogTrigger>
@@ -287,7 +287,7 @@ John Doe`;
                             </DialogDescription>
                           </DialogHeader>
                           <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                            <FileUpload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                            <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                             <p className="text-sm mb-2">Drag and drop your resume here</p>
                             <p className="text-xs text-muted-foreground mb-4">Supports PDF, DOCX (max 5MB)</p>
                             <Button size="sm">Select File</Button>

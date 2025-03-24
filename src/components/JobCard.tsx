@@ -169,8 +169,7 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
             variant="outline"
             size="lg"
             className="rounded-full"
-            as={Link}
-            to="/ai-agent"
+            onClick={() => window.location.href = '/ai-agent'}
           >
             <ExternalLink className="h-5 w-5 text-muted-foreground" />
             <span className="ml-1">AI Agent</span>
