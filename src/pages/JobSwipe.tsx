@@ -5,7 +5,11 @@ import JobCard from "@/components/JobCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { BriefcaseIcon, Filter, ArrowLeft, ArrowRight, Bookmark, Clock, Zap } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Toggle } from "@/components/ui/toggle";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Command, CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { BriefcaseIcon, Filter, ArrowLeft, ArrowRight, Bookmark, Clock, Zap, Building, MapPin, GraduationCap, Banknote, Timer, Globe, CalendarDays, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,6 +19,7 @@ const JobSwipe = () => {
   const [swipedJobs, setSwipedJobs] = useState<{ id: string; direction: "left" | "right" }[]>([]);
   const swipeHistoryRef = useRef<{ id: string; direction: "left" | "right" }[]>([]);
   const [activeTab, setActiveTab] = useState("recommended");
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   // Sample job data
   const jobs = [
@@ -115,38 +120,155 @@ const JobSwipe = () => {
       
       <main className="max-w-7xl mx-auto px-4 pt-8 pb-16">
         <div className="flex flex-col md:flex-row gap-8">
-          {/* Sidebar */}
-          <div className="w-full md:w-72 space-y-6">
+          {/* Sidebar with enhanced filters */}
+          <div className="w-full md:w-80 space-y-6">
             <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-border bg-secondary/50">
+              <div className="p-4 border-b border-border bg-secondary/50 flex items-center justify-between">
                 <h2 className="font-medium">Job Filters</h2>
-              </div>
-              <div className="p-4 space-y-4">
-                <Button variant="outline" className="w-full justify-between">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    <span>Filter Jobs</span>
-                  </div>
-                  <span className="text-xs bg-secondary rounded-full px-2 py-0.5">4</span>
+                <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => setIsFiltersOpen(!isFiltersOpen)}>
+                  <Filter className="h-4 w-4" />
+                  <span className="text-xs">Filters</span>
                 </Button>
+              </div>
+              <div className="p-4 space-y-5">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <input 
+                    type="text" 
+                    placeholder="Search by title, skill, or company" 
+                    className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
                 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Location</span>
-                    <span className="font-medium">Remote</span>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Location</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <input 
+                        type="text" 
+                        placeholder="City, state, or zip code" 
+                        className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Toggle size="sm" aria-label="Toggle remote">
+                        <Globe className="h-3.5 w-3.5 mr-1" />
+                        <span className="text-xs">Remote only</span>
+                      </Toggle>
+                      <Toggle size="sm" aria-label="Toggle hybrid">
+                        <Building className="h-3.5 w-3.5 mr-1" />
+                        <span className="text-xs">Hybrid</span>
+                      </Toggle>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Experience</span>
-                    <span className="font-medium">Mid-Senior</span>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Job Type</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <ToggleGroup type="multiple">
+                        <ToggleGroupItem value="full-time" size="sm" className="h-8 text-xs justify-center">
+                          Full-time
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="part-time" size="sm" className="h-8 text-xs justify-center">
+                          Part-time
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="contract" size="sm" className="h-8 text-xs justify-center">
+                          Contract
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="internship" size="sm" className="h-8 text-xs justify-center">
+                          Internship
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Job Type</span>
-                    <span className="font-medium">Full-time</span>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Experience Level</label>
+                    <Select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="entry">Entry Level</SelectItem>
+                        <SelectItem value="associate">Associate</SelectItem>
+                        <SelectItem value="mid">Mid-Level</SelectItem>
+                        <SelectItem value="senior">Senior</SelectItem>
+                        <SelectItem value="executive">Executive</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Salary Range</span>
-                    <span className="font-medium">$100k+</span>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Salary Range</label>
+                    <Select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0-50k">$0 - $50,000</SelectItem>
+                        <SelectItem value="50k-75k">$50,000 - $75,000</SelectItem>
+                        <SelectItem value="75k-100k">$75,000 - $100,000</SelectItem>
+                        <SelectItem value="100k-150k">$100,000 - $150,000</SelectItem>
+                        <SelectItem value="150k+">$150,000+</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Date Posted</label>
+                    <Select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Any time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="today">Past 24 hours</SelectItem>
+                        <SelectItem value="week">Past week</SelectItem>
+                        <SelectItem value="month">Past month</SelectItem>
+                        <SelectItem value="any">Any time</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Industry</label>
+                    <Select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select industry" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tech">Technology</SelectItem>
+                        <SelectItem value="healthcare">Healthcare</SelectItem>
+                        <SelectItem value="finance">Finance</SelectItem>
+                        <SelectItem value="education">Education</SelectItem>
+                        <SelectItem value="retail">Retail</SelectItem>
+                        <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="pt-2">
+                    <Button variant="outline" size="sm" className="w-full justify-between">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="h-4 w-4" />
+                        <span>Education & Skills</span>
+                      </div>
+                      <span className="text-xs bg-secondary rounded-full px-2 py-0.5">+</span>
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between gap-4 pt-2">
+                  <Button variant="outline" size="sm" className="flex-1">
+                    Reset
+                  </Button>
+                  <Button size="sm" className="flex-1">
+                    Apply Filters
+                  </Button>
                 </div>
               </div>
             </div>
