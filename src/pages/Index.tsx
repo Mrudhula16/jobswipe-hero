@@ -24,31 +24,37 @@ const Index = () => {
       icon: Search,
       title: "Smart Job Matching",
       description: "AI-powered job matching based on your skills and preferences",
+      path: "/job-swipe"
     },
     {
       icon: Zap,
       title: "One-Click Apply",
       description: "Apply to multiple jobs with a single swipe right",
+      path: "/job-swipe"
     },
     {
       icon: PenTool,
       title: "Resume Optimizer",
       description: "AI analysis and optimization for your resume and cover letters",
+      path: "/profile"
     },
     {
       icon: BarChart2,
       title: "Application Tracking",
       description: "Track all your applications and interviews in one place",
+      path: "/dashboard"
     },
     {
       icon: Target,
       title: "AI Agent",
       description: "Let the AI agent apply to jobs for you automatically",
+      path: "/dashboard"
     },
     {
       icon: Shield,
       title: "Privacy First",
       description: "Your data is encrypted and never shared without permission",
+      path: "/profile"
     },
   ];
 
@@ -174,17 +180,22 @@ const Index = () => {
             {features.map((feature, i) => (
               <motion.div
                 key={i}
-                className="bg-card rounded-xl p-6 shadow-sm border border-border hover:shadow-md transition-shadow"
+                className="bg-card rounded-xl p-6 shadow-sm border border-border hover:shadow-md transition-shadow cursor-pointer"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
                 viewport={{ once: true, margin: "-50px" }}
+                whileHover={{ scale: 1.03 }}
+                onClick={() => navigate(feature.path)}
               >
                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                   <feature.icon className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="text-xl font-medium mb-2">{feature.title}</h3>
                 <p className="text-muted-foreground">{feature.description}</p>
+                <div className="mt-4 flex justify-end">
+                  <ChevronRight className="h-5 w-5 text-primary opacity-70" />
+                </div>
               </motion.div>
             ))}
           </div>
