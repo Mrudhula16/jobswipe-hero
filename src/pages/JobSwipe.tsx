@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import JobCard from "@/components/JobCard";
@@ -19,6 +20,8 @@ const JobSwipe = () => {
   const swipeHistoryRef = useRef<{ id: string; direction: "left" | "right" }[]>([]);
   const [activeTab, setActiveTab] = useState("recommended");
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  // Add state to manage animation exit to prevent twitching
+  const [animatingCardId, setAnimatingCardId] = useState<string | null>(null);
 
   const jobs = [
     {
@@ -85,6 +88,10 @@ const JobSwipe = () => {
 
   const handleSwipe = (direction: "left" | "right") => {
     const jobId = jobs[currentIndex].id;
+    
+    // Set the currently animating card
+    setAnimatingCardId(jobId);
+    
     setSwipedJobs([...swipedJobs, { id: jobId, direction }]);
     swipeHistoryRef.current = [...swipeHistoryRef.current, { id: jobId, direction }];
     
@@ -95,11 +102,14 @@ const JobSwipe = () => {
       });
     }
     
+    // Wait for animation to complete before changing index
     setTimeout(() => {
       setCurrentIndex(prevIndex => 
         prevIndex < jobs.length - 1 ? prevIndex + 1 : prevIndex
       );
-    }, 300);
+      // Reset the animating card ID
+      setAnimatingCardId(null);
+    }, 500); // Match this with the animation duration
   };
 
   const handleUndo = () => {
@@ -363,7 +373,7 @@ const JobSwipe = () => {
                           .slice(currentIndex, currentIndex + 3)
                           .reverse()
                           .map((job, index) => {
-                            const isActive = index === 0;
+                            const isActive = index === 0 && !animatingCardId;
                             return (
                               <JobCard
                                 key={job.id}

@@ -58,7 +58,21 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       onDragEnd={handleDragEnd}
       animate={exitX !== null ? { x: exitX } : undefined}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      transition={{ 
+        type: "spring", 
+        stiffness: 300, 
+        damping: 30,
+        // Adding a longer duration and making sure animation completes
+        duration: 0.5,
+        ease: "easeOut"
+      }}
+      // Add onAnimationComplete to ensure proper card removal
+      onAnimationComplete={() => {
+        if (exitX !== null) {
+          // Reset animation variables if needed
+          x.set(0);
+        }
+      }}
     >
       <Card className="w-full h-full max-w-md mx-auto overflow-hidden neo-card">
         {/* Job Image/Logo Header */}
