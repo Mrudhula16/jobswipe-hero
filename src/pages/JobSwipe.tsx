@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import JobCard from "@/components/JobCard";
@@ -10,7 +11,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Command, CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { 
   BriefcaseIcon, Filter, ArrowLeft, ArrowRight, Bookmark, Clock, Zap, Building, MapPin, 
-  GraduationCap, Banknote, Timer, Globe, CalendarDays, Search, X, Heart, ChevronDown
+  GraduationCap, Banknote, Timer, Globe, CalendarDays, Search, X, Heart, ChevronDown, Check
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
