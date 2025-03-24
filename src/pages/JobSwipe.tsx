@@ -374,26 +374,6 @@ const JobSwipe = () => {
                             );
                           })}
                       </AnimatePresence>
-                      
-                      <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-8">
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="h-14 w-14 rounded-full"
-                          onClick={() => handleSwipe("left")}
-                        >
-                          <X className="h-6 w-6" />
-                        </Button>
-                        
-                        <Button
-                          variant="default"
-                          size="icon"
-                          className="h-14 w-14 rounded-full bg-green-500 hover:bg-green-600"
-                          onClick={() => handleSwipe("right")}
-                        >
-                          <Heart className="h-6 w-6" />
-                        </Button>
-                      </div>
                     </>
                   )}
                 </div>
