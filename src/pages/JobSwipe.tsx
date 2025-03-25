@@ -64,8 +64,6 @@ const JobSwipe = () => {
     setIsFiltering(true);
     try {
       const filteredJobs = await getFilteredJobs(filters);
-      // We would normally update the job list here, but for demo purposes
-      // we'll just show a toast indicating that filters were applied
       toast({
         title: "Filters Applied",
         description: `Found ${filteredJobs.length} jobs matching your criteria.`,
@@ -100,7 +98,6 @@ const JobSwipe = () => {
     });
   };
 
-  // All the filter options - keep the same as in your original file
   const datePostedOptions = [
     { value: "past24h", label: "Past 24 hours" },
     { value: "past3d", label: "Past 3 days" },
@@ -228,7 +225,6 @@ const JobSwipe = () => {
                 </Button>
               </div>
               <div className="p-4 space-y-5">
-                {/* Search field */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                     <Search className="h-4 w-4 text-muted-foreground" />
@@ -241,7 +237,6 @@ const JobSwipe = () => {
                 </div>
                 
                 <div className="space-y-4">
-                  {/* Location filter */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Location</label>
                     <div className="relative">
@@ -272,7 +267,7 @@ const JobSwipe = () => {
                                 </CommandItem>
                                 <CommandItem onSelect={() => handleFilterChange("location", "San Francisco, CA")}>
                                   San Francisco, CA
-                                </CommandItem
+                                </CommandItem>
                                 <CommandItem onSelect={() => handleFilterChange("location", "Seattle, WA")}>
                                   Seattle, WA
                                 </CommandItem>
@@ -313,7 +308,6 @@ const JobSwipe = () => {
                     </div>
                   </div>
                   
-                  {/* Job Type filter */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Job Type</label>
                     <DropdownMenu>
