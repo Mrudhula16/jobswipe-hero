@@ -1,7 +1,7 @@
-
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import JobCard from "@/components/JobCard";
+import JobCardSkeleton from "@/components/JobCardSkeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -11,21 +11,21 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Command, CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { 
   BriefcaseIcon, Filter, ArrowLeft, ArrowRight, Bookmark, Clock, Zap, Building, MapPin, 
-  GraduationCap, Banknote, Timer, Globe, CalendarDays, Search, X, Heart, ChevronDown, Check
+  GraduationCap, Banknote, Timer, Globe, CalendarDays, Search, X, Heart, ChevronDown, Check, 
+  RefreshCw
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import useJobSwiper from "@/hooks/useJobSwiper";
+import { getFilteredJobs } from "@/services/jobService";
 
 const JobSwipe = () => {
   const { toast } = useToast();
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [swipedJobs, setSwipedJobs] = useState<{ id: string; direction: "left" | "right" }[]>([]);
-  const swipeHistoryRef = useRef<{ id: string; direction: "left" | "right" }[]>([]);
   const [activeTab, setActiveTab] = useState("recommended");
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [animatingCardId, setAnimatingCardId] = useState<string | null>(null);
+  const [isFiltering, setIsFiltering] = useState(false);
   const [filters, setFilters] = useState({
     jobType: [] as string[],
     experienceLevel: "",
@@ -37,104 +37,21 @@ const JobSwipe = () => {
     isHybrid: false,
   });
 
-  const jobs = [
-    {
-      id: "1",
-      title: "Senior UX Designer",
-      company: "Apple",
-      location: "Cupertino, CA",
-      salary: "$120k - $150k",
-      description: "Join our team to help design the next generation of innovative products. Looking for a experienced designer who can create beautiful, intuitive interfaces.",
-      requirements: ["5+ years experience", "Figma", "User Research", "Prototyping", "UI Design"],
-      posted: "2 days ago",
-      type: "Full-time",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
-    },
-    {
-      id: "2",
-      title: "Frontend Developer",
-      company: "Google",
-      location: "Remote",
-      salary: "$100k - $130k",
-      description: "Work on cutting-edge web applications using the latest technologies. We're seeking a talented frontend developer to join our growing team.",
-      requirements: ["React", "TypeScript", "CSS", "Next.js", "Testing"],
-      posted: "1 week ago",
-      type: "Full-time",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg"
-    },
-    {
-      id: "3",
-      title: "Product Manager",
-      company: "Spotify",
-      location: "New York, NY",
-      salary: "$110k - $140k",
-      description: "Lead product development initiatives and work closely with design, engineering, and marketing teams to deliver exceptional user experiences.",
-      requirements: ["3+ years experience", "Agile", "Data Analysis", "User Stories", "Roadmapping"],
-      posted: "3 days ago",
-      type: "Full-time",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/2048px-Spotify_logo_without_text.svg.png"
-    },
-    {
-      id: "4",
-      title: "Machine Learning Engineer",
-      company: "Netflix",
-      location: "Remote",
-      salary: "$140k - $180k",
-      description: "Build and optimize machine learning models to enhance our recommendation system and improve user experience across the platform.",
-      requirements: ["Python", "TensorFlow", "PyTorch", "Data Science", "NLP"],
-      posted: "5 days ago",
-      type: "Full-time",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Netflix_2015_logo.svg/1200px-Netflix_2015_logo.svg.png"
-    },
-    {
-      id: "5",
-      title: "DevOps Engineer",
-      company: "Microsoft",
-      location: "Seattle, WA",
-      salary: "$115k - $145k",
-      description: "Implement and maintain CI/CD pipelines, infrastructure as code, and cloud services to support our development teams.",
-      requirements: ["AWS", "Kubernetes", "Docker", "Terraform", "CI/CD"],
-      posted: "1 day ago",
-      type: "Full-time",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Microsoft_logo.svg/512px-Microsoft_logo.svg.png"
-    }
-  ];
-
-  const handleSwipe = (direction: "left" | "right") => {
-    if (animatingCardId) return; // Prevent multiple swipes while animating
-    
-    const jobId = jobs[currentIndex].id;
-    
-    // Set the currently animating card
-    setAnimatingCardId(jobId);
-    
-    setSwipedJobs([...swipedJobs, { id: jobId, direction }]);
-    swipeHistoryRef.current = [...swipeHistoryRef.current, { id: jobId, direction }];
-    
-    if (direction === "right") {
-      toast({
-        title: "Application Saved",
-        description: `${jobs[currentIndex].title} has been added to your Applications`,
-      });
-    }
-    
-    // Wait for animation to complete before changing index
-    setTimeout(() => {
-      setCurrentIndex(prevIndex => 
-        prevIndex < jobs.length - 1 ? prevIndex + 1 : prevIndex
-      );
-      // Reset the animating card ID
-      setAnimatingCardId(null);
-    }, 500); // Match this with the animation duration in JobCard
-  };
-
-  const handleUndo = () => {
-    if (swipeHistoryRef.current.length === 0 || currentIndex === 0) return;
-    
-    swipeHistoryRef.current.pop();
-    setSwipedJobs(swipeHistoryRef.current);
-    setCurrentIndex(prevIndex => prevIndex - 1);
-  };
+  const {
+    jobs,
+    currentIndex,
+    swipedJobs,
+    isLoading,
+    isLoadingMore,
+    noMoreJobs,
+    animatingCardId,
+    handleSwipe,
+    handleUndo,
+    resetJobs
+  } = useJobSwiper({
+    initialFetchCount: 5,
+    prefetchThreshold: 2
+  });
 
   const handleFilterChange = (category: string, value: any) => {
     setFilters(prev => ({
@@ -143,8 +60,47 @@ const JobSwipe = () => {
     }));
   };
 
-  const noMoreCards = currentIndex >= jobs.length;
+  const applyFilters = async () => {
+    setIsFiltering(true);
+    try {
+      const filteredJobs = await getFilteredJobs(filters);
+      // We would normally update the job list here, but for demo purposes
+      // we'll just show a toast indicating that filters were applied
+      toast({
+        title: "Filters Applied",
+        description: `Found ${filteredJobs.length} jobs matching your criteria.`,
+      });
+      resetJobs();
+    } catch (error) {
+      console.error('Error applying filters:', error);
+      toast({
+        title: "Error",
+        description: "Failed to apply filters. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsFiltering(false);
+    }
+  };
 
+  const resetFilters = () => {
+    setFilters({
+      jobType: [],
+      experienceLevel: "",
+      datePosted: "",
+      salary: "",
+      location: "",
+      industry: "",
+      isRemote: false,
+      isHybrid: false,
+    });
+    toast({
+      title: "Filters Reset",
+      description: "All filters have been cleared.",
+    });
+  };
+
+  // All the filter options - keep the same as in your original file
   const datePostedOptions = [
     { value: "past24h", label: "Past 24 hours" },
     { value: "past3d", label: "Past 3 days" },
@@ -272,6 +228,7 @@ const JobSwipe = () => {
                 </Button>
               </div>
               <div className="p-4 space-y-5">
+                {/* Search field */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                     <Search className="h-4 w-4 text-muted-foreground" />
@@ -284,6 +241,7 @@ const JobSwipe = () => {
                 </div>
                 
                 <div className="space-y-4">
+                  {/* Location filter */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Location</label>
                     <div className="relative">
@@ -297,6 +255,7 @@ const JobSwipe = () => {
                             placeholder="City, state, or zip code" 
                             className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
                             readOnly
+                            value={filters.location}
                           />
                         </PopoverTrigger>
                         <PopoverContent className="w-80 p-0" align="start">
@@ -313,7 +272,7 @@ const JobSwipe = () => {
                                 </CommandItem>
                                 <CommandItem onSelect={() => handleFilterChange("location", "San Francisco, CA")}>
                                   San Francisco, CA
-                                </CommandItem>
+                                </CommandItem
                                 <CommandItem onSelect={() => handleFilterChange("location", "Seattle, WA")}>
                                   Seattle, WA
                                 </CommandItem>
@@ -354,6 +313,7 @@ const JobSwipe = () => {
                     </div>
                   </div>
                   
+                  {/* Job Type filter */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Job Type</label>
                     <DropdownMenu>
@@ -553,23 +513,25 @@ const JobSwipe = () => {
                     variant="outline" 
                     size="sm" 
                     className="flex-1"
-                    onClick={() => {
-                      setFilters({
-                        jobType: [],
-                        experienceLevel: "",
-                        datePosted: "",
-                        salary: "",
-                        location: "",
-                        industry: "",
-                        isRemote: false,
-                        isHybrid: false,
-                      });
-                    }}
+                    onClick={resetFilters}
+                    disabled={isFiltering}
                   >
                     Reset
                   </Button>
-                  <Button size="sm" className="flex-1">
-                    Apply Filters
+                  <Button 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={applyFilters}
+                    disabled={isFiltering}
+                  >
+                    {isFiltering ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Applying...
+                      </>
+                    ) : (
+                      "Apply Filters"
+                    )}
                   </Button>
                 </div>
               </div>
@@ -583,9 +545,9 @@ const JobSwipe = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm">
                     <Zap className="h-4 w-4 text-primary" />
-                    <span className="text-muted-foreground">Matches Today</span>
+                    <span className="text-muted-foreground">Available Jobs</span>
                   </div>
-                  <span className="font-medium">12</span>
+                  <span className="font-medium">{jobs.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm">
@@ -639,7 +601,14 @@ const JobSwipe = () => {
               
               <TabsContent value="recommended" className="mt-4">
                 <div className="relative h-[600px] max-w-md mx-auto">
-                  {noMoreCards ? (
+                  {isLoading ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <JobCardSkeleton />
+                      <p className="text-center mt-4 text-muted-foreground animate-pulse">
+                        Loading jobs...
+                      </p>
+                    </div>
+                  ) : noMoreJobs ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 neo-card rounded-2xl border border-border animate-fade-in">
                       <div className="h-20 w-20 rounded-full bg-secondary flex items-center justify-center mb-4">
                         <BriefcaseIcon className="h-10 w-10 text-muted-foreground" />
@@ -650,15 +619,11 @@ const JobSwipe = () => {
                       </p>
                       <Button 
                         variant="default" 
-                        onClick={() => {
-                          setCurrentIndex(0);
-                          setSwipedJobs([]);
-                          swipeHistoryRef.current = [];
-                        }}
+                        onClick={resetJobs}
                         className="gap-2"
                       >
-                        <ArrowLeft className="h-4 w-4" />
-                        Reset Jobs
+                        <RefreshCw className="h-4 w-4" />
+                        Find More Jobs
                       </Button>
                     </div>
                   ) : (
@@ -679,14 +644,45 @@ const JobSwipe = () => {
                             );
                           })}
                       </AnimatePresence>
+                      
+                      {isLoadingMore && currentIndex > 0 && !noMoreJobs && (
+                        <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-4">
+                          <div className="flex items-center gap-2 bg-primary/10 rounded-full px-4 py-1 text-sm">
+                            <RefreshCw className="h-3 w-3 animate-spin text-primary" />
+                            <span>Loading more jobs...</span>
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
                 
-                <div className="mt-8 text-center">
-                  <p className="text-muted-foreground">
+                <div className="mt-8 flex items-center justify-center gap-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-full" 
+                    onClick={handleUndo}
+                    disabled={currentIndex === 0 || isLoading}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    Undo
+                  </Button>
+                  
+                  <div className="text-sm text-muted-foreground">
                     Swipe right to apply, swipe left to pass
-                  </p>
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-full" 
+                    onClick={resetJobs}
+                    disabled={isLoading}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Reset
+                  </Button>
                 </div>
               </TabsContent>
               
