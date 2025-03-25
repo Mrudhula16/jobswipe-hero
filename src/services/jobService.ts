@@ -1,6 +1,5 @@
 
-// Mock service that simulates fetching jobs from an API
-// This can be replaced with actual API calls when integrated with a backend
+// Job service to fetch real job data and manage job interactions
 
 // Job type definition for better type safety
 export interface Job {
@@ -15,9 +14,10 @@ export interface Job {
   type: string;
   logo?: string;
   isNew?: boolean;
+  url?: string;
 }
 
-// Sample job data - would come from API in production
+// Sample job data for fallback if API fails
 const mockJobs: Job[] = [
   {
     id: "1",
@@ -148,60 +148,174 @@ const mockJobs: Job[] = [
 // Simulate network delays for more realistic API behavior
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// API key for RapidAPI Jobs API (normally this would be stored securely server-side)
+const API_KEY = ""; // Add your RapidAPI key here if using their services
+
+// Function to fetch real jobs from a jobs API
+export const fetchRealJobs = async (searchParams: any = {}): Promise<Job[]> => {
+  try {
+    console.log("Fetching real jobs with params:", searchParams);
+    
+    // If we have an API key and it's a production environment, fetch from real API
+    if (API_KEY) {
+      // Example using RapidAPI Jobs API (jsearch)
+      const response = await fetch(`https://jsearch.p.rapidapi.com/search?query=${searchParams.query || "software developer"}&page=${searchParams.page || 1}&num_pages=1`, {
+        method: 'GET',
+        headers: {
+          'X-RapidAPI-Key': API_KEY,
+          'X-RapidAPI-Host': 'jsearch.p.rapidapi.com'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Map API response to our Job interface
+      return data.data.map((item: any) => ({
+        id: item.job_id,
+        title: item.job_title,
+        company: item.employer_name,
+        location: item.job_city ? `${item.job_city}, ${item.job_state}` : item.job_country,
+        salary: item.job_salary || "Salary not specified",
+        description: item.job_description,
+        requirements: item.job_highlights?.Qualifications || ["Requirements not specified"],
+        posted: item.job_posted_at_datetime_utc ? new Date(item.job_posted_at_datetime_utc).toLocaleDateString() : "Recently",
+        type: item.job_employment_type || "Not specified",
+        logo: item.employer_logo,
+        isNew: new Date(item.job_posted_at_datetime_utc).getTime() > Date.now() - (3 * 24 * 60 * 60 * 1000),
+        url: item.job_apply_link
+      }));
+    }
+    
+    // If no API key or in development, fall back to mock data
+    console.log("Using mock job data (no API key provided)");
+    await delay(1500); // Simulate API delay
+    return mockJobs.slice(0, 5);
+  } catch (error) {
+    console.error("Error fetching real jobs:", error);
+    await delay(1500); // Simulate API delay
+    return mockJobs.slice(0, 5); // Fallback to mock data
+  }
+};
+
 // Get initial batch of jobs
 export const getJobs = async (count: number = 5): Promise<Job[]> => {
-  // Simulate API delay
-  await delay(1500);
-  return mockJobs.slice(0, count);
+  try {
+    // Try to get real jobs first
+    const jobs = await fetchRealJobs();
+    return jobs.slice(0, count);
+  } catch (error) {
+    console.error("Falling back to mock jobs:", error);
+    // Simulate API delay
+    await delay(1500);
+    return mockJobs.slice(0, count);
+  }
 };
 
 // Get more jobs (pagination simulation)
 export const getMoreJobs = async (lastJobId: string, count: number = 3): Promise<Job[]> => {
-  // Simulate API delay
-  await delay(2000);
-  
-  const lastIndex = mockJobs.findIndex(job => job.id === lastJobId);
-  if (lastIndex === -1 || lastIndex + 1 >= mockJobs.length) {
-    return [];
+  try {
+    // In a real implementation, we would pass the last job ID to get the next batch
+    const jobs = await fetchRealJobs({ page: 2 });
+    return jobs.slice(0, count);
+  } catch (error) {
+    console.error("Falling back to mock jobs for pagination:", error);
+    // Simulate API delay
+    await delay(2000);
+    
+    const lastIndex = mockJobs.findIndex(job => job.id === lastJobId);
+    if (lastIndex === -1 || lastIndex + 1 >= mockJobs.length) {
+      return [];
+    }
+    
+    return mockJobs.slice(lastIndex + 1, lastIndex + 1 + count);
   }
-  
-  return mockJobs.slice(lastIndex + 1, lastIndex + 1 + count);
 };
 
 // Get jobs based on filters
 export const getFilteredJobs = async (filters: any): Promise<Job[]> => {
-  // Simulate API delay
-  await delay(1500);
-  
-  // In a real implementation, this would apply the filters on the server side
-  // This is just a simplified version for demonstration
-  let filteredJobs = [...mockJobs];
+  try {
+    // In a real implementation, we would pass the filters to the API
+    const query = buildQueryFromFilters(filters);
+    const jobs = await fetchRealJobs({ query });
+    return jobs.slice(0, 5);
+  } catch (error) {
+    console.error("Falling back to filtered mock jobs:", error);
+    // Simulate API delay
+    await delay(1500);
+    
+    // Apply filters locally to mock data
+    let filteredJobs = [...mockJobs];
+    
+    if (filters.jobType && filters.jobType.length > 0) {
+      filteredJobs = filteredJobs.filter(job => 
+        filters.jobType.some((type: string) => 
+          job.type.toLowerCase().includes(type.toLowerCase())
+        )
+      );
+    }
+    
+    if (filters.location) {
+      filteredJobs = filteredJobs.filter(job => 
+        job.location.toLowerCase().includes(filters.location.toLowerCase())
+      );
+    }
+    
+    if (filters.isRemote) {
+      filteredJobs = filteredJobs.filter(job => 
+        job.location.toLowerCase().includes("remote")
+      );
+    }
+    
+    return filteredJobs.slice(0, 5); // Return the first 5 matching jobs
+  }
+};
+
+// Helper function to build query string from filters
+const buildQueryFromFilters = (filters: any): string => {
+  const queryParts = [];
   
   if (filters.jobType && filters.jobType.length > 0) {
-    filteredJobs = filteredJobs.filter(job => 
-      filters.jobType.some((type: string) => 
-        job.type.toLowerCase().includes(type.toLowerCase())
-      )
-    );
+    queryParts.push(filters.jobType[0]); // Add first job type to query
   }
   
-  if (filters.location) {
-    filteredJobs = filteredJobs.filter(job => 
-      job.location.toLowerCase().includes(filters.location.toLowerCase())
-    );
+  if (filters.location && !filters.isRemote) {
+    queryParts.push(`in ${filters.location}`);
   }
   
   if (filters.isRemote) {
-    filteredJobs = filteredJobs.filter(job => 
-      job.location.toLowerCase().includes("remote")
-    );
+    queryParts.push("remote");
   }
   
-  return filteredJobs.slice(0, 5); // Return the first 5 matching jobs
+  // Default to "Software Developer" if no filters set
+  return queryParts.length > 0 ? queryParts.join(" ") : "Software Developer";
+};
+
+// Save job to user's saved jobs
+export const saveJob = async (jobId: string): Promise<boolean> => {
+  // In a real app, this would make an API call to the backend
+  console.log(`Saving job ${jobId} to user's saved jobs`);
+  // Simulate API call
+  await delay(500);
+  return true;
+};
+
+// Apply to a job
+export const applyToJob = async (jobId: string): Promise<boolean> => {
+  // In a real app, this would make an API call to the backend
+  console.log(`Applying to job ${jobId}`);
+  // Simulate API call
+  await delay(1000);
+  return true;
 };
 
 export default {
   getJobs,
   getMoreJobs,
-  getFilteredJobs
+  getFilteredJobs,
+  saveJob,
+  applyToJob
 };

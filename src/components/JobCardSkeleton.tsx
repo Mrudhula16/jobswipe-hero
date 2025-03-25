@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const JobCardSkeleton = () => {
   return (
-    <Card className="w-full h-full max-w-md mx-auto overflow-hidden neo-card">
+    <Card className="w-full h-full max-w-md mx-auto overflow-hidden neo-card absolute inset-0 animate-pulse">
       {/* Header Skeleton */}
       <div className="relative h-32 bg-gradient-to-r from-primary/10 to-accent/10 flex items-center justify-center">
         <Skeleton className="h-16 w-16 rounded-md" />
