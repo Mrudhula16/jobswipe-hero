@@ -69,6 +69,7 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
       onAnimationComplete={() => {
         if (exitX !== null) {
           x.set(0);
+          setExitX(null); // Reset exitX to null to allow for proper cleanup
         }
       }}
     >
@@ -169,10 +170,13 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
             variant="outline"
             size="lg"
             className="rounded-full"
-            onClick={() => window.location.href = '/ai-agent'}
+            onClick={() => {
+              // Open in a new tab or navigate to an external link
+              window.open('https://example.com/apply', '_blank');
+            }}
           >
             <ExternalLink className="h-5 w-5 text-muted-foreground" />
-            <span className="ml-1">AI Agent</span>
+            <span className="ml-1">Apply Manually</span>
           </Button>
           
           <Button 
