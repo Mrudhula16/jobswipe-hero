@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronRight, BriefcaseIcon, Zap, Settings, Target, Shield, BarChart2, Search, PenTool } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { motion } from "framer-motion";
+import JobPreferencesForm from "@/components/JobPreferencesForm";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -162,6 +163,22 @@ const Index = () => {
                 </div>
               </div>
             </motion.div>
+          </div>
+        </div>
+      </section>
+      
+      {/* Job Preferences Section */}
+      <section className="py-12 bg-secondary/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold">Set Your Job Preferences</h2>
+            <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
+              Tell us what you're looking for to receive personalized job recommendations
+            </p>
+          </div>
+          
+          <div className="max-w-3xl mx-auto">
+            <JobPreferencesForm />
           </div>
         </div>
       </section>
