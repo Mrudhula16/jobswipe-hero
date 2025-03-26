@@ -4,6 +4,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import DocumentTabs from "./DocumentTabs";
 import AnalysisTabs from "./AnalysisTabs";
 import JobFilters from "@/components/JobFilters";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useState } from "react";
 
 interface DocumentEditorPanelProps {
   activeTab: string;
@@ -24,11 +27,32 @@ const DocumentEditorPanel = ({
   optimizing,
   onOptimize
 }: DocumentEditorPanelProps) => {
+  const [llmModel, setLlmModel] = useState("gpt4");
+
   return (
     <div className="lg:col-span-2">
       <Card className="neo-card mb-6">
         <CardHeader className="pb-0">
-          <JobFilters onFilterChange={(filters) => console.log("Filters changed:", filters)} />
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+            <JobFilters onFilterChange={(filters) => console.log("Filters changed:", filters)} />
+            
+            <div className="flex items-center gap-3">
+              <Label htmlFor="llm-model" className="text-sm whitespace-nowrap">AI Model:</Label>
+              <Select value={llmModel} onValueChange={setLlmModel}>
+                <SelectTrigger id="llm-model" className="w-[180px]">
+                  <SelectValue placeholder="Select AI model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gpt4">GPT-4o</SelectItem>
+                  <SelectItem value="gpt3">GPT-3.5 Turbo</SelectItem>
+                  <SelectItem value="claude">Claude 3</SelectItem>
+                  <SelectItem value="llama3">Llama 3</SelectItem>
+                  <SelectItem value="grok">Grok</SelectItem>
+                  <SelectItem value="gemini">Gemini</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
       </Card>
 
@@ -58,6 +82,7 @@ const DocumentEditorPanel = ({
               matchScore={matchScore}
               optimizing={optimizing}
               onOptimize={onOptimize}
+              llmModel={llmModel}
             />
           </TabsContent>
         </CardContent>
