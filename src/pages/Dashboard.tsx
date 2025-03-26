@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import ResumeAnalyzer from "@/components/ResumeAnalyzer";
 import AccountConnector from "@/components/AccountConnector";
+import MotivationalInsights from "@/components/MotivationalInsights";
 import { 
   BarChart, PieChart, LineChart, Area, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, ResponsiveContainer, Line, Pie, Cell 
@@ -313,6 +313,7 @@ const Dashboard = () => {
           </div>
           
           <div className="space-y-8">
+            <MotivationalInsights />
             <ResumeAnalyzer />
             <AccountConnector />
           </div>
