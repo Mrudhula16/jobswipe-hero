@@ -4,46 +4,62 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Linkedin, Mail, Github, ArrowRight } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import OTPVerification from "@/components/OTPVerification";
 
 const SignIn = () => {
   const navigate = useNavigate();
-  const { login, signup, isLoading } = useAuth();
+  const { loginWithEmail, verifyOTP, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState("signin");
   
   // Form states
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
   
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-      await login(email, password);
-      navigate("/job-swipe");
+      await loginWithEmail(email);
+      setOtpSent(true);
     } catch (error) {
       console.error("Sign in error:", error);
       // Error is handled by the useAuth hook
     }
   };
   
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleVerifyOTP = async (email: string, token: string) => {
     try {
-      await signup(name, email, password);
-      navigate("/job-swipe");
+      await verifyOTP(email, token);
+      // Navigation is handled in the useAuth hook after successful verification
     } catch (error) {
-      console.error("Sign up error:", error);
-      // Error is handled by the useAuth hook
+      console.error("OTP verification error:", error);
     }
   };
+  
+  const handleResendOTP = async (email: string) => {
+    try {
+      await loginWithEmail(email);
+    } catch (error) {
+      console.error("Resend OTP error:", error);
+    }
+  };
+  
+  if (otpSent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary/30 p-4">
+        <OTPVerification 
+          email={email}
+          onVerify={handleVerifyOTP}
+          onResend={handleResendOTP}
+          isLoading={isLoading}
+        />
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary/30 p-4">
@@ -56,9 +72,8 @@ const SignIn = () => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-2 mb-6">
+            <TabsList className="grid grid-cols-1 mb-6">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Create Account</TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin">
@@ -74,93 +89,15 @@ const SignIn = () => {
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    <a href="#" className="text-xs text-primary hover:underline">
-                      Forgot password?
-                    </a>
-                  </div>
-                  <Input 
-                    id="password" 
-                    type="password" 
-                    placeholder="••••••••" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="remember" 
-                    checked={rememberMe}
-                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                  />
-                  <label
-                    htmlFor="remember"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    Remember me
-                  </label>
-                </div>
                 
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in...
+                      Sending OTP...
                     </>
                   ) : (
-                    "Sign In"
-                  )}
-                </Button>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input 
-                    id="name" 
-                    placeholder="John Doe" 
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email-signup">Email</Label>
-                  <Input 
-                    id="email-signup" 
-                    type="email" 
-                    placeholder="you@example.com" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password-signup">Password</Label>
-                  <Input 
-                    id="password-signup" 
-                    type="password" 
-                    placeholder="••••••••" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating account...
-                    </>
-                  ) : (
-                    "Create Account"
+                    "Continue with Email"
                   )}
                 </Button>
               </form>
@@ -178,15 +115,10 @@ const SignIn = () => {
             </div>
           </div>
           
-          <div className="grid grid-cols-3 gap-3">
-            <Button variant="outline" size="icon" className="h-10">
-              <Linkedin className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" className="h-10">
-              <Mail className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" className="h-10">
-              <Github className="h-4 w-4" />
+          <div className="grid grid-cols-1 gap-3">
+            <Button variant="outline" className="h-10">
+              <Mail className="h-4 w-4 mr-2" />
+              Magic Email Link
             </Button>
           </div>
         </CardContent>

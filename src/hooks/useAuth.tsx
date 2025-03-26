@@ -1,15 +1,16 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { User, getCurrentUser, signIn, register, signOut } from "@/services/authService";
+import { User, getCurrentUser, signInWithEmailOTP, verifyOTP, signOut } from "@/services/authService";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  loginWithEmail: (email: string) => Promise<void>;
+  verifyOTP: (email: string, token: string) => Promise<void>;
   logout: () => Promise<void>;
   saveJob: (jobId: string) => Promise<void>;
   applyToJob: (jobId: string) => Promise<void>;
@@ -23,11 +24,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is already logged in
-    const checkLoggedIn = async () => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setIsLoading(true);
+        if (session && session.user) {
+          try {
+            const userData = await getCurrentUser();
+            setUser(userData);
+          } catch (error) {
+            console.error("Error getting user data:", error);
+          }
+        } else {
+          setUser(null);
+        }
+        setIsLoading(false);
+      }
+    );
+
+    // Check for existing session
+    const checkSession = async () => {
       try {
-        const currentUser = getCurrentUser();
-        setUser(currentUser);
+        const userData = await getCurrentUser();
+        setUser(userData);
       } catch (error) {
         console.error("Error checking authentication:", error);
       } finally {
@@ -35,47 +54,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    checkLoggedIn();
+    checkSession();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const loginWithEmail = async (email: string) => {
     try {
       setIsLoading(true);
-      const loggedInUser = await signIn(email, password);
-      setUser(loggedInUser);
-      toast({
-        title: "Sign in successful",
-        description: `Welcome back, ${loggedInUser.name}!`
-      });
+      await signInWithEmailOTP(email);
     } catch (error) {
       console.error("Login error:", error);
-      toast({
-        title: "Authentication failed",
-        description: "Invalid email or password. Please try again.",
-        variant: "destructive"
-      });
+      // Error is handled by the auth service
       throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const signup = async (name: string, email: string, password: string) => {
+  const verifyUserOTP = async (email: string, token: string) => {
     try {
       setIsLoading(true);
-      const newUser = await register(name, email, password);
-      setUser(newUser);
-      toast({
-        title: "Account created successfully",
-        description: `Welcome to JobHub, ${newUser.name}!`
-      });
+      const userData = await verifyOTP(email, token);
+      setUser(userData);
+      navigate("/job-swipe");
     } catch (error) {
-      console.error("Signup error:", error);
-      toast({
-        title: "Registration failed",
-        description: "Could not create your account. Please try again.",
-        variant: "destructive"
-      });
+      console.error("OTP verification error:", error);
+      // Error is handled by the auth service
       throw error;
     } finally {
       setIsLoading(false);
@@ -87,16 +94,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(true);
       await signOut();
       setUser(null);
-      toast({
-        title: "Signed out successfully",
-      });
       navigate("/sign-in");
     } catch (error) {
       console.error("Logout error:", error);
-      toast({
-        title: "Error signing out",
-        variant: "destructive"
-      });
+      // Error is handled by the auth service
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +110,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     
     try {
-      // In a real app, this would call an API
       await import("@/services/authService").then(module => module.saveJob(jobId));
       
       // Update local user state
@@ -122,18 +122,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           savedJobs: [...prev.savedJobs, jobId]
         };
       });
-      
-      toast({
-        title: "Job saved successfully",
-        description: "You can view it in your saved jobs list."
-      });
     } catch (error) {
       console.error("Error saving job:", error);
-      toast({
-        title: "Error saving job",
-        description: "Please try again later.",
-        variant: "destructive"
-      });
+      // Error is handled by the auth service
     }
   };
 
@@ -144,7 +135,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     
     try {
-      // In a real app, this would call an API
       await import("@/services/authService").then(module => module.applyToJob(jobId));
       
       // Update local user state
@@ -157,18 +147,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           appliedJobs: [...prev.appliedJobs, jobId]
         };
       });
-      
-      toast({
-        title: "Application submitted",
-        description: "Your application has been sent to the employer."
-      });
     } catch (error) {
       console.error("Error applying to job:", error);
-      toast({
-        title: "Error applying to job",
-        description: "Please try again later.",
-        variant: "destructive"
-      });
+      // Error is handled by the auth service
     }
   };
 
@@ -178,8 +159,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         isAuthenticated: !!user,
         isLoading,
-        login,
-        signup,
+        loginWithEmail,
+        verifyOTP: verifyUserOTP,
         logout,
         saveJob,
         applyToJob

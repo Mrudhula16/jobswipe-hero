@@ -1,4 +1,5 @@
 
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 // User interface
@@ -19,96 +20,129 @@ export interface AuthState {
   isLoading: boolean;
 }
 
-// Mock user data for development
-const mockUsers = [
-  {
-    id: "1",
-    email: "test@example.com",
-    password: "password123", // In a real app, this would be hashed
-    name: "Test User",
-    avatar: "",
-    role: "user",
-    savedJobs: ["1", "3"],
-    appliedJobs: ["2"]
+// Get user from Supabase session
+export const getCurrentUser = async (): Promise<User | null> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
+    return null;
   }
-];
-
-// Simulate API delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Get user from local storage
-export const getCurrentUser = (): User | null => {
-  const userJson = localStorage.getItem("jobhub_user");
-  if (userJson) {
-    try {
-      return JSON.parse(userJson);
-    } catch (error) {
-      console.error("Error parsing user from local storage:", error);
-      return null;
-    }
+  
+  // Get additional user data from profiles table
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', session.user.id)
+    .single();
+  
+  if (profile) {
+    // Get saved jobs
+    const { data: savedJobs } = await supabase
+      .from('saved_jobs')
+      .select('job_id')
+      .eq('user_id', session.user.id);
+    
+    // Get applied jobs
+    const { data: appliedJobs } = await supabase
+      .from('job_applications')
+      .select('job_id')
+      .eq('user_id', session.user.id);
+    
+    return {
+      id: session.user.id,
+      email: session.user.email || '',
+      name: profile.name || session.user.email?.split('@')[0] || '',
+      avatar: profile.avatar_url,
+      role: "user", // Default role, can be updated based on user_roles table
+      savedJobs: savedJobs?.map(job => job.job_id) || [],
+      appliedJobs: appliedJobs?.map(job => job.job_id) || []
+    };
   }
+  
   return null;
 };
 
-// Sign in user
-export const signIn = async (email: string, password: string): Promise<User> => {
-  // Simulate API call
-  await delay(1000);
+// Sign in with email OTP
+export const signInWithEmailOTP = async (email: string): Promise<void> => {
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: window.location.origin + '/job-swipe'
+    }
+  });
   
-  // In a real app, this would be an API call to verify credentials
-  const user = mockUsers.find(u => u.email === email);
-  
-  if (!user || user.password !== password) {
-    throw new Error("Invalid email or password");
+  if (error) {
+    toast({
+      title: "Authentication failed",
+      description: error.message,
+      variant: "destructive"
+    });
+    throw error;
   }
   
-  const { password: _, ...userWithoutPassword } = user;
-  
-  // Save user to local storage
-  localStorage.setItem("jobhub_user", JSON.stringify(userWithoutPassword));
-  
-  return userWithoutPassword as User;
+  toast({
+    title: "Verification email sent",
+    description: "Please check your email for the login link"
+  });
 };
 
-// Register user
-export const register = async (name: string, email: string, password: string): Promise<User> => {
-  // Simulate API call
-  await delay(1500);
+// Verify OTP
+export const verifyOTP = async (email: string, token: string): Promise<User> => {
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: 'email'
+  });
   
-  // Check if user already exists
-  if (mockUsers.some(u => u.email === email)) {
-    throw new Error("User with this email already exists");
+  if (error) {
+    toast({
+      title: "Verification failed",
+      description: error.message,
+      variant: "destructive"
+    });
+    throw error;
   }
   
-  // In a real app, this would be an API call to create user in database
-  const newUser = {
-    id: Date.now().toString(),
-    email,
-    name,
-    role: "user" as const,
-    savedJobs: [],
-    appliedJobs: []
-  };
+  if (!data.user) {
+    throw new Error("User data not found");
+  }
   
-  // Save user to local storage
-  localStorage.setItem("jobhub_user", JSON.stringify(newUser));
+  toast({
+    title: "Verification successful",
+    description: "You are now signed in"
+  });
   
-  return newUser;
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error("User data not found");
+  }
+  
+  return user;
 };
 
 // Sign out user
 export const signOut = async (): Promise<void> => {
-  // Simulate API call
-  await delay(500);
+  const { error } = await supabase.auth.signOut();
   
-  // Clear user from local storage
-  localStorage.removeItem("jobhub_user");
+  if (error) {
+    toast({
+      title: "Error signing out",
+      description: error.message,
+      variant: "destructive"
+    });
+    throw error;
+  }
+  
+  toast({
+    title: "Signed out successfully",
+  });
 };
 
 // Save job to user's saved jobs
 export const saveJob = async (jobId: string): Promise<void> => {
-  const user = getCurrentUser();
-  if (!user) {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
     toast({
       title: "Authentication required",
       description: "Please sign in to save jobs",
@@ -117,20 +151,42 @@ export const saveJob = async (jobId: string): Promise<void> => {
     throw new Error("User not authenticated");
   }
   
-  // Simulate API call
-  await delay(700);
+  const { error } = await supabase
+    .from('saved_jobs')
+    .insert({
+      user_id: session.user.id,
+      job_id: jobId
+    });
   
-  // Add job to user's saved jobs if not already saved
-  if (!user.savedJobs.includes(jobId)) {
-    user.savedJobs.push(jobId);
-    localStorage.setItem("jobhub_user", JSON.stringify(user));
+  if (error) {
+    // If it's a unique violation, the job is already saved
+    if (error.code === '23505') {
+      toast({
+        title: "Job already saved",
+        description: "This job is already in your saved jobs"
+      });
+      return;
+    }
+    
+    toast({
+      title: "Error saving job",
+      description: error.message,
+      variant: "destructive"
+    });
+    throw error;
   }
+  
+  toast({
+    title: "Job saved successfully",
+    description: "You can view it in your saved jobs list"
+  });
 };
 
 // Apply to job
 export const applyToJob = async (jobId: string): Promise<void> => {
-  const user = getCurrentUser();
-  if (!user) {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
     toast({
       title: "Authentication required",
       description: "Please sign in to apply for jobs",
@@ -139,20 +195,42 @@ export const applyToJob = async (jobId: string): Promise<void> => {
     throw new Error("User not authenticated");
   }
   
-  // Simulate API call
-  await delay(1200);
+  const { error } = await supabase
+    .from('job_applications')
+    .insert({
+      user_id: session.user.id,
+      job_id: jobId,
+      status: 'applied'
+    });
   
-  // Add job to user's applied jobs if not already applied
-  if (!user.appliedJobs.includes(jobId)) {
-    user.appliedJobs.push(jobId);
-    localStorage.setItem("jobhub_user", JSON.stringify(user));
+  if (error) {
+    // If it's a unique violation, the job application already exists
+    if (error.code === '23505') {
+      toast({
+        title: "Already applied",
+        description: "You have already applied to this job"
+      });
+      return;
+    }
+    
+    toast({
+      title: "Error applying to job",
+      description: error.message,
+      variant: "destructive"
+    });
+    throw error;
   }
+  
+  toast({
+    title: "Application submitted",
+    description: "Your application has been sent to the employer"
+  });
 };
 
 export default {
   getCurrentUser,
-  signIn,
-  register,
+  signInWithEmailOTP,
+  verifyOTP,
   signOut,
   saveJob,
   applyToJob
