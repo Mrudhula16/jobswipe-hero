@@ -4,10 +4,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { User, AlertCircle, Save, Loader2 } from "lucide-react";
+import { User, AlertCircle, Save, Loader2, Building, MapPin, Briefcase } from "lucide-react";
 import { getUserJobPreferences, saveJobPreferences, JobPreferences } from "@/services/jobPreferencesService";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Badge } from "@/components/ui/badge";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 
 const JobPreferencesForm = () => {
   const { user } = useAuth();
@@ -21,6 +33,9 @@ const JobPreferencesForm = () => {
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [salaryRange, setSalaryRange] = useState<[number, number]>([50000, 150000]);
+  const [companySize, setCompanySize] = useState<string | undefined>(undefined);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   
   // Load job preferences from database
   useEffect(() => {
@@ -31,6 +46,14 @@ const JobPreferencesForm = () => {
           const preferences = await getUserJobPreferences();
           if (preferences) {
             setJobPreferences(preferences);
+            
+            // Set the salary slider if values exist
+            if (preferences.min_salary && preferences.max_salary) {
+              setSalaryRange([
+                Number(preferences.min_salary), 
+                Number(preferences.max_salary)
+              ]);
+            }
           }
         } catch (error) {
           console.error("Error fetching job preferences:", error);
@@ -63,6 +86,20 @@ const JobPreferencesForm = () => {
     }
   };
 
+  const handleSalaryChange = (values: number[]) => {
+    setSalaryRange([values[0], values[1]]);
+    handlePreferenceChange('min_salary', values[0]);
+    handlePreferenceChange('max_salary', values[1]);
+  };
+
+  const toggleSkill = (skill: string) => {
+    if (selectedSkills.includes(skill)) {
+      setSelectedSkills(selectedSkills.filter(s => s !== skill));
+    } else {
+      setSelectedSkills([...selectedSkills, skill]);
+    }
+  };
+
   const handleSavePreferences = async () => {
     if (!user) {
       toast({
@@ -76,9 +113,44 @@ const JobPreferencesForm = () => {
     setSaving(true);
     try {
       await saveJobPreferences(jobPreferences);
+      toast({
+        title: "Preferences saved",
+        description: "Your job preferences have been updated",
+      });
+    } catch (error) {
+      toast({
+        title: "Error saving preferences",
+        description: "Please try again later",
+        variant: "destructive"
+      });
     } finally {
       setSaving(false);
     }
+  };
+
+  // Company size options for the dropdown
+  const companySizes = [
+    { value: "startup", label: "Startup (1-50)" },
+    { value: "small", label: "Small (51-200)" },
+    { value: "medium", label: "Medium (201-1000)" },
+    { value: "large", label: "Large (1001-5000)" },
+    { value: "enterprise", label: "Enterprise (5000+)" },
+  ];
+
+  // Common skills for tech/design roles
+  const commonSkills = [
+    "JavaScript", "React", "TypeScript", "Node.js", "UI/UX Design", 
+    "Python", "SQL", "AWS", "Product Management", "Data Analysis",
+    "Figma", "Adobe XD", "Project Management", "Marketing", "Sales"
+  ];
+
+  // Format salary as currency
+  const formatSalary = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0
+    }).format(value);
   };
 
   return (
@@ -134,6 +206,22 @@ const JobPreferencesForm = () => {
                 >
                   Software Engineer
                 </Button>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="rounded-full"
+                  onClick={() => handlePreferenceChange('job_title', 'Product Manager')}
+                >
+                  Product Manager
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="rounded-full"
+                  onClick={() => handlePreferenceChange('job_title', 'Data Scientist')}
+                >
+                  Data Scientist
+                </Button>
                 <Button variant="outline" size="sm" className="rounded-full">+ Add</Button>
               </div>
             </div>
@@ -165,6 +253,14 @@ const JobPreferencesForm = () => {
                     onClick={() => toggleArrayPreference('employment_types', 'contract')}
                   >
                     Contract
+                  </Button>
+                  <Button 
+                    variant={jobPreferences.employment_types?.includes('internship') ? "secondary" : "outline"} 
+                    size="sm" 
+                    className="rounded-full"
+                    onClick={() => toggleArrayPreference('employment_types', 'internship')}
+                  >
+                    Internship
                   </Button>
                 </div>
               </div>
@@ -201,21 +297,40 @@ const JobPreferencesForm = () => {
             </div>
             
             <div className="space-y-2">
-              <Label>Desired Salary Range</Label>
-              <div className="grid grid-cols-2 gap-4">
-                <Input 
-                  placeholder="Minimum (USD)" 
-                  value={jobPreferences.min_salary || ""} 
-                  onChange={(e) => handlePreferenceChange('min_salary', e.target.value ? Number(e.target.value) : undefined)}
-                  type="number"
-                />
-                <Input 
-                  placeholder="Maximum (USD)" 
-                  value={jobPreferences.max_salary || ""} 
-                  onChange={(e) => handlePreferenceChange('max_salary', e.target.value ? Number(e.target.value) : undefined)}
-                  type="number"
-                />
+              <div className="flex items-center justify-between">
+                <Label>Desired Salary Range</Label>
+                <span className="text-sm text-muted-foreground">
+                  {formatSalary(salaryRange[0])} - {formatSalary(salaryRange[1])}
+                </span>
               </div>
+              <Slider
+                defaultValue={[50000, 150000]}
+                value={salaryRange}
+                max={300000}
+                min={0}
+                step={5000}
+                onValueChange={handleSalaryChange}
+                className="mt-2"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Company Size</Label>
+              <Select 
+                value={companySize} 
+                onValueChange={setCompanySize}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select company size" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companySizes.map(size => (
+                    <SelectItem key={size.value} value={size.value}>
+                      {size.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="space-y-2">
@@ -227,6 +342,7 @@ const JobPreferencesForm = () => {
                   className="rounded-full"
                   onClick={() => toggleArrayPreference('industries', 'technology')}
                 >
+                  <Building className="h-3.5 w-3.5 mr-1.5" />
                   Technology
                 </Button>
                 <Button 
@@ -235,6 +351,7 @@ const JobPreferencesForm = () => {
                   className="rounded-full"
                   onClick={() => toggleArrayPreference('industries', 'design')}
                 >
+                  <Building className="h-3.5 w-3.5 mr-1.5" />
                   Design
                 </Button>
                 <Button 
@@ -243,6 +360,7 @@ const JobPreferencesForm = () => {
                   className="rounded-full"
                   onClick={() => toggleArrayPreference('industries', 'finance')}
                 >
+                  <Building className="h-3.5 w-3.5 mr-1.5" />
                   Finance
                 </Button>
                 <Button 
@@ -251,9 +369,101 @@ const JobPreferencesForm = () => {
                   className="rounded-full"
                   onClick={() => toggleArrayPreference('industries', 'healthcare')}
                 >
+                  <Building className="h-3.5 w-3.5 mr-1.5" />
                   Healthcare
                 </Button>
-                <Button variant="outline" size="sm" className="rounded-full">+ Add</Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="rounded-full">+ More</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56">
+                    <DropdownMenuLabel>More Industries</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem onClick={() => toggleArrayPreference('industries', 'education')}>
+                        Education
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleArrayPreference('industries', 'retail')}>
+                        Retail
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleArrayPreference('industries', 'marketing')}>
+                        Marketing
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleArrayPreference('industries', 'consulting')}>
+                        Consulting
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleArrayPreference('industries', 'hospitality')}>
+                        Hospitality
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleArrayPreference('industries', 'nonprofit')}>
+                        Nonprofit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleArrayPreference('industries', 'government')}>
+                        Government
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Required Skills</Label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {commonSkills.slice(0, 10).map(skill => (
+                  <Badge 
+                    key={skill}
+                    variant={selectedSkills.includes(skill) ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => toggleSkill(skill)}
+                  >
+                    {skill}
+                  </Badge>
+                ))}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Badge variant="outline" className="cursor-pointer">+ More</Badge>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56">
+                    <DropdownMenuLabel>More Skills</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      {commonSkills.slice(10).map(skill => (
+                        <DropdownMenuItem key={skill} onClick={() => toggleSkill(skill)}>
+                          {skill}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Location</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="City, state, or country" 
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Experience Level</Label>
+                <Select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="entry">Entry Level</SelectItem>
+                    <SelectItem value="mid">Mid Level</SelectItem>
+                    <SelectItem value="senior">Senior Level</SelectItem>
+                    <SelectItem value="executive">Executive</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             
