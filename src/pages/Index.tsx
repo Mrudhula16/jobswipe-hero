@@ -2,6 +2,7 @@
 import React from "react";
 import Navbar from "@/components/Navbar";
 import JobFilterExample from "@/components/JobFilterExample";
+import FeedbackChat from "@/components/FeedbackChat";
 
 const Index = () => {
   return (
@@ -11,6 +12,7 @@ const Index = () => {
         <h1 className="text-3xl font-bold mb-8 text-center">Job Search Platform</h1>
         <JobFilterExample />
       </main>
+      <FeedbackChat />
     </div>
   );
 };
