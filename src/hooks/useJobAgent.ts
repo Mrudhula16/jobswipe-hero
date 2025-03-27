@@ -12,18 +12,29 @@ interface JobAgentConfig {
   updated_at?: string;
 }
 
+interface JobApplication {
+  id?: string;
+  job_title: string;
+  company: string;
+  status: 'pending' | 'applied' | 'failed';
+  created_at?: string;
+}
+
 interface UseJobAgentReturn {
   isActive: boolean;
   isLoading: boolean;
   error: Error | null;
+  applications: JobApplication[];
   toggleJobAgent: () => Promise<void>;
   setMLParameters: (params: Record<string, any>) => Promise<void>;
+  applyToJob: (jobDetails: any) => Promise<boolean>;
 }
 
 export const useJobAgent = (): UseJobAgentReturn => {
   const [isActive, setIsActive] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -41,6 +52,17 @@ export const useJobAgent = (): UseJobAgentReturn => {
 
       if (error) throw error;
       setIsActive(data?.is_active || false);
+      
+      // Fetch job applications
+      const { data: appData, error: appError } = await supabase
+        .from('job_applications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (appError) throw appError;
+      setApplications(appData || []);
+      
     } catch (err) {
       console.error('Error fetching job agent status:', err);
       setError(err instanceof Error ? err : new Error(String(err)));
@@ -135,6 +157,100 @@ export const useJobAgent = (): UseJobAgentReturn => {
       });
     }
   };
+  
+  // New function to handle job applications
+  const applyToJob = async (jobDetails: any): Promise<boolean> => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to apply for jobs.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    if (!isActive) {
+      // If auto-application is not active, just record the application without attempting to auto-apply
+      try {
+        const { error } = await supabase
+          .from('job_applications')
+          .insert({
+            user_id: user.id,
+            job_title: jobDetails.title,
+            company: jobDetails.company,
+            job_url: jobDetails.applicationUrl || jobDetails.url,
+            status: 'pending',
+            auto_applied: false
+          });
+          
+        if (error) throw error;
+        
+        toast({
+          title: "Job Saved",
+          description: `${jobDetails.title} at ${jobDetails.company} has been saved to your applications.`,
+        });
+        
+        // Refresh applications list
+        fetchStatus();
+        return true;
+      } catch (err) {
+        console.error('Error saving job application:', err);
+        toast({
+          title: "Error",
+          description: "Failed to save job application.",
+          variant: "destructive"
+        });
+        return false;
+      }
+    }
+    
+    // If auto-application is active, attempt to auto-apply
+    try {
+      setIsLoading(true);
+      toast({
+        title: "Auto-Applying",
+        description: `Attempting to apply for ${jobDetails.title} at ${jobDetails.company}...`,
+      });
+      
+      const { data, error } = await supabase.functions.invoke('job-auto-apply', {
+        body: { 
+          jobDetails,
+          userId: user.id
+        }
+      });
+      
+      if (error) throw error;
+      
+      // Show result toast
+      if (data.success) {
+        toast({
+          title: "Application Successful",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "Application Failed",
+          description: data.message,
+          variant: "destructive"
+        });
+      }
+      
+      // Refresh applications list
+      fetchStatus();
+      return data.success;
+    } catch (err) {
+      console.error('Error during auto-application:', err);
+      setError(err instanceof Error ? err : new Error(String(err)));
+      toast({
+        title: "Auto-Application Error",
+        description: "Failed to apply to job. Please try manually.",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchStatus();
@@ -144,7 +260,9 @@ export const useJobAgent = (): UseJobAgentReturn => {
     isActive,
     isLoading,
     error,
+    applications,
     toggleJobAgent,
-    setMLParameters
+    setMLParameters,
+    applyToJob
   };
 };

@@ -2,6 +2,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { Job, getJobs, getMoreJobs } from '@/services/jobService';
+import { useJobAgent } from '@/hooks/useJobAgent';
+import { useAuth } from '@/hooks/useAuth';
 
 interface UseJobSwiperProps {
   initialFetchCount?: number;
@@ -36,6 +38,10 @@ const useJobSwiper = ({
   const [noMoreJobs, setNoMoreJobs] = useState(false);
   const [animatingCardId, setAnimatingCardId] = useState<string | null>(null);
   const hasMoreJobsRef = useRef(true);
+  
+  // Add job agent integration
+  const { isActive: isAgentActive, applyToJob } = useJobAgent();
+  const { user } = useAuth();
 
   // Initial fetch
   useEffect(() => {
@@ -99,7 +105,7 @@ const useJobSwiper = ({
   }, [currentIndex, isLoadingMore, jobs, prefetchThreshold, onJobsChange]);
 
   // Handle job swiping
-  const handleSwipe = (direction: "left" | "right") => {
+  const handleSwipe = async (direction: "left" | "right") => {
     if (animatingCardId || jobs.length === 0) return;
     
     const jobId = jobs[currentIndex]?.id;
@@ -112,12 +118,28 @@ const useJobSwiper = ({
     setSwipedJobs(prev => [...prev, { id: jobId, direction }]);
     swipeHistoryRef.current = [...swipeHistoryRef.current, { id: jobId, direction }];
     
-    // Show toast for right swipes (applications)
+    // If right swipe (application) and job agent is active, attempt to auto-apply
     if (direction === "right") {
-      toast({
-        title: "Application Saved",
-        description: `${jobs[currentIndex].title} has been added to your Applications`,
-      });
+      const currentJob = jobs[currentIndex];
+      
+      // If user is logged in and the agent is active, attempt auto-application
+      if (user && isAgentActive) {
+        toast({
+          title: "AI Agent Active",
+          description: `AI Agent is attempting to apply to ${currentJob.title}...`,
+        });
+        
+        // This will be handled by the job agent
+        applyToJob(currentJob).catch(err => {
+          console.error("Auto-application error:", err);
+        });
+      } else {
+        // Show regular toast for standard application
+        toast({
+          title: "Application Saved",
+          description: `${currentJob.title} has been added to your Applications`,
+        });
+      }
     }
     
     // Wait for animation to complete before changing index
