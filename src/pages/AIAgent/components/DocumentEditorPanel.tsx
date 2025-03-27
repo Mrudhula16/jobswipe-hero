@@ -63,28 +63,29 @@ const DocumentEditorPanel = ({
               <TabsTrigger value="documents">Documents</TabsTrigger>
               <TabsTrigger value="analysis">Analysis</TabsTrigger>
             </TabsList>
+          
+            {/* TabsContent must be INSIDE the Tabs component */}
+            <TabsContent value="documents" className="mt-0">
+              <DocumentTabs 
+                activeDocType={activeDocType} 
+                setActiveDocType={setActiveDocType} 
+              />
+            </TabsContent>
+            
+            <TabsContent value="analysis" className="mt-0">
+              <AnalysisTabs 
+                activeDocType={activeDocType} 
+                setActiveDocType={setActiveDocType}
+                matchScore={matchScore}
+                optimizing={optimizing}
+                onOptimize={onOptimize}
+                llmModel={llmModel}
+              />
+            </TabsContent>
           </Tabs>
         </CardHeader>
         <CardContent className="pt-4">
-          {/* Documents Tab Content */}
-          <TabsContent value="documents" className="mt-0">
-            <DocumentTabs 
-              activeDocType={activeDocType} 
-              setActiveDocType={setActiveDocType} 
-            />
-          </TabsContent>
-          
-          {/* Analysis Tab Content */}
-          <TabsContent value="analysis" className="mt-0">
-            <AnalysisTabs 
-              activeDocType={activeDocType} 
-              setActiveDocType={setActiveDocType}
-              matchScore={matchScore}
-              optimizing={optimizing}
-              onOptimize={onOptimize}
-              llmModel={llmModel}
-            />
-          </TabsContent>
+          {/* Remove TabsContent from here as they've been moved inside the Tabs component above */}
         </CardContent>
       </Card>
     </div>
