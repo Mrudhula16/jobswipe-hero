@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { ChevronRight, BriefcaseIcon, Zap, Settings, Target, Shield, BarChart2, Search, PenTool } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { motion } from "framer-motion";
+import { useJobAgent } from "@/hooks/useJobAgent";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const Index = () => {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
+  const { isActive, isLoading, toggleJobAgent } = useJobAgent();
 
   // Handle scroll event
   useEffect(() => {
@@ -48,7 +51,10 @@ const Index = () => {
       icon: Target,
       title: "AI Agent",
       description: "Let the AI agent apply to jobs for you automatically",
-      path: "/dashboard"
+      path: "/dashboard",
+      action: toggleJobAgent,
+      isActive: isActive,
+      isLoading: isLoading
     },
     {
       icon: Shield,
@@ -180,13 +186,21 @@ const Index = () => {
             {features.map((feature, i) => (
               <motion.div
                 key={i}
-                className="bg-card rounded-xl p-6 shadow-sm border border-border hover:shadow-md transition-shadow cursor-pointer"
+                className={`bg-card rounded-xl p-6 shadow-sm border border-border hover:shadow-md transition-shadow cursor-pointer ${
+                  feature.action ? "relative overflow-hidden" : ""
+                }`}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
                 viewport={{ once: true, margin: "-50px" }}
                 whileHover={{ scale: 1.03 }}
-                onClick={() => navigate(feature.path)}
+                onClick={() => {
+                  if (feature.action) {
+                    feature.action();
+                  } else {
+                    navigate(feature.path);
+                  }
+                }}
               >
                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                   <feature.icon className="h-6 w-6 text-primary" />
@@ -196,6 +210,39 @@ const Index = () => {
                 <div className="mt-4 flex justify-end">
                   <ChevronRight className="h-5 w-5 text-primary opacity-70" />
                 </div>
+
+                {feature.action && (
+                  <div className="absolute right-3 top-3">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className={`h-6 w-6 rounded-full flex items-center justify-center ${
+                            feature.isLoading
+                              ? "bg-amber-100"
+                              : feature.isActive
+                              ? "bg-green-100"
+                              : "bg-red-100"
+                          }`}>
+                            <div className={`h-3 w-3 rounded-full ${
+                              feature.isLoading
+                                ? "bg-amber-500 animate-pulse"
+                                : feature.isActive
+                                ? "bg-green-500"
+                                : "bg-red-500"
+                            }`} />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {feature.isLoading
+                            ? "Updating status..."
+                            : feature.isActive
+                            ? "AI Agent is active"
+                            : "AI Agent is inactive"}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>
