@@ -109,10 +109,14 @@ export type Database = {
       }
       job_applications: {
         Row: {
+          auto_applied: boolean | null
+          company: string
           cover_letter_id: string | null
           created_at: string
           id: string
-          job_id: string
+          job_id: string | null
+          job_title: string
+          job_url: string | null
           notes: string | null
           resume_id: string | null
           status: string
@@ -120,10 +124,14 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auto_applied?: boolean | null
+          company: string
           cover_letter_id?: string | null
           created_at?: string
           id?: string
-          job_id: string
+          job_id?: string | null
+          job_title: string
+          job_url?: string | null
           notes?: string | null
           resume_id?: string | null
           status?: string
@@ -131,10 +139,14 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auto_applied?: boolean | null
+          company?: string
           cover_letter_id?: string | null
           created_at?: string
           id?: string
-          job_id?: string
+          job_id?: string | null
+          job_title?: string
+          job_url?: string | null
           notes?: string | null
           resume_id?: string | null
           status?: string

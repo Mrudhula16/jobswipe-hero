@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -16,7 +15,10 @@ interface JobApplication {
   id?: string;
   job_title: string;
   company: string;
+  job_url?: string;
   status: 'pending' | 'applied' | 'failed';
+  auto_applied?: boolean;
+  notes?: string;
   created_at?: string;
 }
 
@@ -61,7 +63,20 @@ export const useJobAgent = (): UseJobAgentReturn => {
         .order('created_at', { ascending: false });
         
       if (appError) throw appError;
-      setApplications(appData || []);
+      
+      // Transform the data to match our JobApplication interface
+      const transformedApplications: JobApplication[] = appData?.map(app => ({
+        id: app.id,
+        job_title: app.job_title,
+        company: app.company,
+        job_url: app.job_url,
+        status: app.status as 'pending' | 'applied' | 'failed',
+        auto_applied: app.auto_applied,
+        notes: app.notes,
+        created_at: app.created_at
+      })) || [];
+      
+      setApplications(transformedApplications);
       
     } catch (err) {
       console.error('Error fetching job agent status:', err);
@@ -157,8 +172,7 @@ export const useJobAgent = (): UseJobAgentReturn => {
       });
     }
   };
-  
-  // New function to handle job applications
+
   const applyToJob = async (jobDetails: any): Promise<boolean> => {
     if (!user) {
       toast({
