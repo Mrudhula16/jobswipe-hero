@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -27,35 +28,18 @@ export const getCurrentUser = async (): Promise<User | null> => {
     return null;
   }
   
-  try {
-    // Get saved jobs
-    const { data: savedJobs } = await supabase
-      .from('saved_jobs')
-      .select('job_id')
-      .eq('user_id', session.user.id);
-      
-    // Get applied jobs
-    const { data: appliedJobs } = await supabase
-      .from('job_applications')
-      .select('job_id')
-      .eq('user_id', session.user.id);
-    
-    // For now, since we don't have the proper types for our database tables,
-    // we'll create a mock user with the session data
-    const user: User = {
-      id: session.user.id,
-      email: session.user.email || '',
-      name: session.user.email?.split('@')[0] || '',
-      role: "user",
-      savedJobs: savedJobs ? savedJobs.map(job => job.job_id) : [],
-      appliedJobs: appliedJobs ? appliedJobs.map(job => job.job_id) : []
-    };
-    
-    return user;
-  } catch (error) {
-    console.error('Error getting user data:', error);
-    return null;
-  }
+  // For now, since we don't have the proper types for our database tables,
+  // we'll create a mock user with the session data
+  const mockUser: User = {
+    id: session.user.id,
+    email: session.user.email || '',
+    name: session.user.email?.split('@')[0] || '',
+    role: "user",
+    savedJobs: [],
+    appliedJobs: []
+  };
+  
+  return mockUser;
 };
 
 // Sign in with email OTP
