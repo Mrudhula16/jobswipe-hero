@@ -12,7 +12,7 @@ import { Command, CommandDialog, CommandInput, CommandList, CommandEmpty, Comman
 import { 
   BriefcaseIcon, Filter, ArrowLeft, ArrowRight, Bookmark, Clock, Zap, Building, MapPin, 
   GraduationCap, Banknote, Timer, Globe, CalendarDays, Search, X, Heart, ChevronDown, Check, 
-  RefreshCw
+  RefreshCw, Bot, Settings
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import useJobSwiper from "@/hooks/useJobSwiper";
 import { getFilteredJobs } from "@/services/jobService";
+import { useJobAgent } from "@/hooks/useJobAgent";
+import { JobAgentConfigDialog } from "@/components/JobAgentConfig";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import JobAgentConfig from "@/components/JobAgentConfig";
 
 const JobSwipe = () => {
   const { toast } = useToast();
@@ -52,6 +56,9 @@ const JobSwipe = () => {
     initialFetchCount: 5,
     prefetchThreshold: 2
   });
+
+  const { isActive, isLoading: agentLoading, toggleJobAgent } = useJobAgent();
+  const [showAgentConfig, setShowAgentConfig] = useState(false);
 
   const handleFilterChange = (category: string, value: any) => {
     setFilters(prev => ({
@@ -563,7 +570,7 @@ const JobSwipe = () => {
             <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl p-4 border border-border shadow-sm">
               <div className="flex items-center gap-3 mb-3">
                 <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
-                  <BriefcaseIcon className="h-5 w-5 text-accent" />
+                  <Bot className="h-5 w-5 text-accent" />
                 </div>
                 <div>
                   <h3 className="font-medium">Job Agent</h3>
@@ -573,9 +580,47 @@ const JobSwipe = () => {
               <p className="text-sm text-muted-foreground mb-3">
                 Let our AI agent automatically apply to jobs that match your profile and preferences.
               </p>
-              <Button variant="outline" size="sm" className="w-full">
-                Activate Job Agent
-              </Button>
+              <div className="space-y-2">
+                <Button 
+                  variant={isActive ? "outline" : "default"} 
+                  size="sm" 
+                  className="w-full"
+                  onClick={toggleJobAgent}
+                  disabled={agentLoading}
+                >
+                  {agentLoading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : isActive ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Agent Active
+                    </>
+                  ) : (
+                    "Activate Job Agent"
+                  )}
+                </Button>
+                
+                <Dialog open={showAgentConfig} onOpenChange={setShowAgentConfig}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="w-full">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Configure
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Job Agent Configuration</DialogTitle>
+                      <DialogDescription>
+                        Configure your AI-powered job agent to automatically find and apply to matching jobs.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <JobAgentConfig onClose={() => setShowAgentConfig(false)} />
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
           </div>
           

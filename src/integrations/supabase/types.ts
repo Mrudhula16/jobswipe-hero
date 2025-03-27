@@ -39,6 +39,74 @@ export type Database = {
         }
         Relationships: []
       }
+      job_agent_activities: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          job_id: string | null
+          result: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          result?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          result?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_agent_activities_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_agent_configs: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          ml_parameters: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          ml_parameters?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          ml_parameters?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       job_applications: {
         Row: {
           cover_letter_id: string | null
@@ -170,6 +238,36 @@ export type Database = {
           type?: string
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      ml_model_configs: {
+        Row: {
+          created_at: string
+          endpoint_url: string | null
+          id: string
+          model_type: string
+          parameters: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint_url?: string | null
+          id?: string
+          model_type: string
+          parameters?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          endpoint_url?: string | null
+          id?: string
+          model_type?: string
+          parameters?: Json | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -306,6 +404,12 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
         }
         Returns: boolean
+      }
+      toggle_job_agent: {
+        Args: {
+          is_active?: boolean
+        }
+        Returns: Json
       }
     }
     Enums: {
