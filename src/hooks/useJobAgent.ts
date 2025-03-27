@@ -3,14 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
 
-interface JobAgentConfig {
-  id?: string;
-  is_active: boolean;
-  ml_parameters?: Record<string, any>;
-  created_at?: string;
-  updated_at?: string;
-}
-
 interface JobApplication {
   id?: string;
   job_title: string;
@@ -20,6 +12,14 @@ interface JobApplication {
   auto_applied?: boolean;
   notes?: string;
   created_at?: string;
+}
+
+interface JobAgentConfig {
+  id?: string;
+  is_active: boolean;
+  ml_parameters?: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface UseJobAgentReturn {
@@ -55,7 +55,6 @@ export const useJobAgent = (): UseJobAgentReturn => {
       if (error) throw error;
       setIsActive(data?.is_active || false);
       
-      // Fetch job applications
       const { data: appData, error: appError } = await supabase
         .from('job_applications')
         .select('*')
@@ -64,7 +63,6 @@ export const useJobAgent = (): UseJobAgentReturn => {
         
       if (appError) throw appError;
       
-      // Transform the data to match our JobApplication interface
       const transformedApplications: JobApplication[] = appData?.map(app => ({
         id: app.id,
         job_title: app.job_title,
@@ -184,7 +182,6 @@ export const useJobAgent = (): UseJobAgentReturn => {
     }
     
     if (!isActive) {
-      // If auto-application is not active, just record the application without attempting to auto-apply
       try {
         const { error } = await supabase
           .from('job_applications')
@@ -204,7 +201,6 @@ export const useJobAgent = (): UseJobAgentReturn => {
           description: `${jobDetails.title} at ${jobDetails.company} has been saved to your applications.`,
         });
         
-        // Refresh applications list
         fetchStatus();
         return true;
       } catch (err) {
@@ -218,7 +214,6 @@ export const useJobAgent = (): UseJobAgentReturn => {
       }
     }
     
-    // If auto-application is active, attempt to auto-apply
     try {
       setIsLoading(true);
       toast({
@@ -235,7 +230,6 @@ export const useJobAgent = (): UseJobAgentReturn => {
       
       if (error) throw error;
       
-      // Show result toast
       if (data.success) {
         toast({
           title: "Application Successful",
@@ -249,7 +243,6 @@ export const useJobAgent = (): UseJobAgentReturn => {
         });
       }
       
-      // Refresh applications list
       fetchStatus();
       return data.success;
     } catch (err) {
