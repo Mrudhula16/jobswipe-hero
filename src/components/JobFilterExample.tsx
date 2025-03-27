@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from "react";
 import FilterDropdown from "./FilterDropdown";
 import { JobPlatformFilters } from "@/services/jobSourcesService";
 import { getJobPlatformFilters } from "@/services/jobSourcesService";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import JobList from "./JobList";
 import { RefreshCw } from "lucide-react";
@@ -27,7 +27,6 @@ const JobFilterExample = () => {
   const loadFilters = async () => {
     setIsLoading(true);
     try {
-      // This uses the mock data from jobSourcesService
       const filterOptions = await getJobPlatformFilters();
       setFilters(filterOptions);
       toast({
@@ -46,12 +45,10 @@ const JobFilterExample = () => {
     }
   };
 
-  // Load filters on component mount
   useEffect(() => {
     loadFilters();
   }, []);
 
-  // Handle filter changes
   const handleFilterChange = (filterName: keyof typeof selectedFilters, value: string | string[] | boolean) => {
     setSelectedFilters(prev => ({
       ...prev,
@@ -59,7 +56,6 @@ const JobFilterExample = () => {
     }));
   };
 
-  // Convert selected filters to the format expected by jobService
   const getFormattedFilters = () => {
     return {
       roles: selectedFilters.roles,
@@ -192,7 +188,6 @@ const JobFilterExample = () => {
             </div>
           </div>
 
-          {/* Display applied filters summary if any filters are selected */}
           {Object.entries(selectedFilters).some(([key, value]) => 
             Array.isArray(value) ? value.length > 0 : value !== "" && value !== false
           ) && (
@@ -266,7 +261,6 @@ const JobFilterExample = () => {
             </div>
           )}
           
-          {/* Real-time job results */}
           <div className="mt-8 border-t pt-8">
             <JobList filters={getFormattedFilters()} />
           </div>
