@@ -28,13 +28,22 @@ const DocumentEditorPanel = ({
   onOptimize
 }: DocumentEditorPanelProps) => {
   const [llmModel, setLlmModel] = useState("gpt4");
+  const [filters, setFilters] = useState<Record<string, string[]>>({});
+
+  const handleFilterChange = (newFilters: Record<string, string[]>) => {
+    console.log("Filters changed:", newFilters);
+    setFilters(newFilters);
+  };
 
   return (
     <div className="lg:col-span-2">
       <Card className="neo-card mb-6">
         <CardHeader className="pb-0">
           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-            <JobFilters onFilterChange={(filters) => console.log("Filters changed:", filters)} />
+            <JobFilters 
+              onFilterChange={handleFilterChange} 
+              onApplyFilters={(formattedFilters) => console.log("Applying filters:", formattedFilters)} 
+            />
             
             <div className="flex items-center gap-3">
               <Label htmlFor="llm-model" className="text-sm whitespace-nowrap">AI Model:</Label>
@@ -85,7 +94,7 @@ const DocumentEditorPanel = ({
           </Tabs>
         </CardHeader>
         <CardContent className="pt-4">
-          {/* Remove TabsContent from here as they've been moved inside the Tabs component above */}
+          {/* Content rendered by active tab */}
         </CardContent>
       </Card>
     </div>

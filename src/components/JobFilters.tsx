@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Filter, Check, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,89 +16,9 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-
-interface FilterOption {
-  value: string;
-  label: string;
-}
-
-interface FilterGroup {
-  name: string;
-  options: FilterOption[];
-}
-
-// Common filter groups used by job platforms like LinkedIn/Glassdoor
-const filterGroups: FilterGroup[] = [
-  {
-    name: "Job Type",
-    options: [
-      { value: "full-time", label: "Full-time" },
-      { value: "part-time", label: "Part-time" },
-      { value: "contract", label: "Contract" },
-      { value: "temporary", label: "Temporary" },
-      { value: "internship", label: "Internship" },
-      { value: "remote", label: "Remote" },
-    ],
-  },
-  {
-    name: "Experience Level",
-    options: [
-      { value: "entry", label: "Entry level" },
-      { value: "mid", label: "Mid-Senior level" },
-      { value: "senior", label: "Senior level" },
-      { value: "director", label: "Director" },
-      { value: "executive", label: "Executive" },
-    ],
-  },
-  {
-    name: "Industry",
-    options: [
-      { value: "tech", label: "Information Technology" },
-      { value: "healthcare", label: "Healthcare" },
-      { value: "finance", label: "Finance" },
-      { value: "education", label: "Education" },
-      { value: "retail", label: "Retail" },
-      { value: "manufacturing", label: "Manufacturing" },
-      { value: "media", label: "Media & Communication" },
-      { value: "consulting", label: "Consulting" },
-      { value: "government", label: "Government" },
-    ],
-  },
-  {
-    name: "Salary Range",
-    options: [
-      { value: "0-50k", label: "$0 - $50,000" },
-      { value: "50k-70k", label: "$50,000 - $70,000" },
-      { value: "70k-100k", label: "$70,000 - $100,000" },
-      { value: "100k-150k", label: "$100,000 - $150,000" },
-      { value: "150k+", label: "$150,000+" },
-    ],
-  },
-  {
-    name: "Skills",
-    options: [
-      { value: "javascript", label: "JavaScript" },
-      { value: "python", label: "Python" },
-      { value: "react", label: "React" },
-      { value: "sql", label: "SQL" },
-      { value: "java", label: "Java" },
-      { value: "product-management", label: "Product Management" },
-      { value: "marketing", label: "Marketing" },
-      { value: "sales", label: "Sales" },
-      { value: "design", label: "Design" },
-      { value: "data-analysis", label: "Data Analysis" },
-    ],
-  },
-  {
-    name: "Date Posted",
-    options: [
-      { value: "24h", label: "Past 24 hours" },
-      { value: "week", label: "Past week" },
-      { value: "month", label: "Past month" },
-      { value: "any", label: "Any time" },
-    ],
-  },
-];
+import { useJobFilters } from "@/hooks/useJobFilters";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FilterOption } from "@/services/jobService";
 
 interface JobFiltersProps {
   onFilterChange?: (filters: Record<string, string[]>) => void;
@@ -107,20 +27,30 @@ interface JobFiltersProps {
 }
 
 const JobFilters = ({ onFilterChange, onApplyFilters, isFiltering = false }: JobFiltersProps) => {
-  const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>(
-    Object.fromEntries(filterGroups.map(group => [group.name, []]))
-  );
+  const { filterCategories, filterOptions, isLoading } = useJobFilters();
+  const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+
+  // Initialize selected filters with empty arrays for each category
+  useEffect(() => {
+    if (filterCategories.length > 0) {
+      const initialFilters: Record<string, string[]> = {};
+      filterCategories.forEach(category => {
+        initialFilters[category.name] = [];
+      });
+      setSelectedFilters(initialFilters);
+    }
+  }, [filterCategories]);
 
   const handleFilterChange = (groupName: string, value: string) => {
     setSelectedFilters(prev => {
       // Check if value is already selected
-      const isSelected = prev[groupName].includes(value);
+      const isSelected = prev[groupName]?.includes(value);
       
       // Create a new array with or without the value
       const newValues = isSelected
         ? prev[groupName].filter(item => item !== value)
-        : [...prev[groupName], value];
+        : [...(prev[groupName] || []), value];
       
       const newFilters = {
         ...prev,
@@ -137,7 +67,11 @@ const JobFilters = ({ onFilterChange, onApplyFilters, isFiltering = false }: Job
   };
 
   const resetFilters = () => {
-    const emptyFilters = Object.fromEntries(filterGroups.map(group => [group.name, []]));
+    const emptyFilters: Record<string, string[]> = {};
+    filterCategories.forEach(category => {
+      emptyFilters[category.name] = [];
+    });
+    
     setSelectedFilters(emptyFilters);
     if (onFilterChange) {
       onFilterChange(emptyFilters);
@@ -148,18 +82,38 @@ const JobFilters = ({ onFilterChange, onApplyFilters, isFiltering = false }: Job
     if (onApplyFilters) {
       // Convert selected filters to format expected by the API
       const formattedFilters = {
-        jobType: selectedFilters['Job Type'],
-        experienceLevel: selectedFilters['Experience Level'].length > 0 ? selectedFilters['Experience Level'][0] : '',
-        industry: selectedFilters['Industry'].length > 0 ? selectedFilters['Industry'][0] : '',
-        skills: selectedFilters['Skills'],
-        jobFunction: selectedFilters['Job Type']
+        jobType: selectedFilters['job_type'] || [],
+        experienceLevel: selectedFilters['experience_level']?.length > 0 ? selectedFilters['experience_level'][0] : '',
+        industry: selectedFilters['industry']?.length > 0 ? selectedFilters['industry'][0] : '',
+        skills: selectedFilters['skills'] || [],
+        jobFunction: selectedFilters['job_function'] || []
       };
       
       onApplyFilters(formattedFilters);
     }
   };
 
-  const totalSelectedFilters = Object.values(selectedFilters).flat().length;
+  const getTotalSelectedFilters = () => {
+    return Object.values(selectedFilters).reduce((total, filters) => total + filters.length, 0);
+  };
+
+  const totalSelectedFilters = getTotalSelectedFilters();
+
+  if (isLoading) {
+    return (
+      <div className="bg-card rounded-lg border border-border p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-24" />
+          <Skeleton className="h-8 w-16" />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-8 w-24" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card rounded-lg border border-border p-4 space-y-4">
@@ -176,22 +130,22 @@ const JobFilters = ({ onFilterChange, onApplyFilters, isFiltering = false }: Job
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {filterGroups.map((group) => (
+        {filterCategories.map((category) => (
           <Popover 
-            key={group.name} 
-            open={activeFilter === group.name}
-            onOpenChange={(open) => setActiveFilter(open ? group.name : null)}
+            key={category.name} 
+            open={activeFilter === category.name}
+            onOpenChange={(open) => setActiveFilter(open ? category.name : null)}
           >
             <PopoverTrigger asChild>
               <Button 
                 variant="outline" 
                 size="sm" 
-                className={`h-8 text-xs ${selectedFilters[group.name].length > 0 ? 'border-primary/50 bg-primary/5' : ''}`}
+                className={`h-8 text-xs ${selectedFilters[category.name]?.length > 0 ? 'border-primary/50 bg-primary/5' : ''}`}
               >
-                {group.name}
-                {selectedFilters[group.name].length > 0 && (
+                {category.name.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                {selectedFilters[category.name]?.length > 0 && (
                   <Badge className="ml-2 h-5 bg-primary/20 text-primary hover:bg-primary/30" variant="secondary">
-                    {selectedFilters[group.name].length}
+                    {selectedFilters[category.name].length}
                   </Badge>
                 )}
                 <ChevronDown className="ml-1 h-3 w-3 opacity-70" />
@@ -199,16 +153,16 @@ const JobFilters = ({ onFilterChange, onApplyFilters, isFiltering = false }: Job
             </PopoverTrigger>
             <PopoverContent className="w-64 p-0" align="start">
               <Command>
-                <CommandInput placeholder={`Search ${group.name.toLowerCase()}...`} />
+                <CommandInput placeholder={`Search ${category.name.split('_').join(' ')}...`} />
                 <CommandList>
                   <CommandEmpty>No results found.</CommandEmpty>
                   <CommandGroup>
-                    {group.options.map((option) => {
-                      const isSelected = selectedFilters[group.name].includes(option.value);
+                    {filterOptions[category.name]?.map((option: FilterOption) => {
+                      const isSelected = selectedFilters[category.name]?.includes(option.value);
                       return (
                         <CommandItem
-                          key={option.value}
-                          onSelect={() => handleFilterChange(group.name, option.value)}
+                          key={option.id}
+                          onSelect={() => handleFilterChange(category.name, option.value)}
                           className="flex items-center gap-2 cursor-pointer"
                         >
                           <div className={`flex h-4 w-4 items-center justify-center rounded border ${
@@ -230,11 +184,11 @@ const JobFilters = ({ onFilterChange, onApplyFilters, isFiltering = false }: Job
 
       {totalSelectedFilters > 0 && (
         <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
-          {filterGroups.map(group => (
-            selectedFilters[group.name].length > 0 && (
-              <div key={group.name} className="flex flex-wrap gap-1">
-                {selectedFilters[group.name].map((value) => {
-                  const option = group.options.find(opt => opt.value === value);
+          {filterCategories.map(category => (
+            selectedFilters[category.name]?.length > 0 && (
+              <div key={category.name} className="flex flex-wrap gap-1">
+                {selectedFilters[category.name].map((value) => {
+                  const option = filterOptions[category.name]?.find(opt => opt.value === value);
                   return option ? (
                     <Badge 
                       key={value} 
@@ -244,7 +198,7 @@ const JobFilters = ({ onFilterChange, onApplyFilters, isFiltering = false }: Job
                       <span className="text-xs font-normal">{option.label}</span>
                       <X 
                         className="h-3 w-3 cursor-pointer" 
-                        onClick={() => handleFilterChange(group.name, value)}
+                        onClick={() => handleFilterChange(category.name, value)}
                       />
                     </Badge>
                   ) : null;

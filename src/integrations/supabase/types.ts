@@ -163,6 +163,68 @@ export type Database = {
           },
         ]
       }
+      job_filter_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      job_filter_options: {
+        Row: {
+          category_id: string
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_filter_options_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "job_filter_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_preferences: {
         Row: {
           created_at: string

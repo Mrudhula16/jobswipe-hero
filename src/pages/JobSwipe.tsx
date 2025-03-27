@@ -24,6 +24,7 @@ import { useJobAgent } from "@/hooks/useJobAgent";
 import { JobAgentConfigDialog } from "@/components/JobAgentConfig";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import JobAgentConfig from "@/components/JobAgentConfig";
+import JobFilters from "@/components/JobFilters";
 
 const JobSwipe = () => {
   const { toast } = useToast();
@@ -68,10 +69,34 @@ const JobSwipe = () => {
     }));
   };
 
-  const applyJobFilters = async () => {
+  const handleJobFiltersChange = (newFilters: Record<string, string[]>) => {
+    // Map the database filter format to our application format
+    setFilters(prev => ({
+      ...prev,
+      jobType: newFilters['job_type'] || [],
+      experienceLevel: newFilters['experience_level']?.length > 0 ? newFilters['experience_level'][0] : '',
+      industry: newFilters['industry']?.length > 0 ? newFilters['industry'][0] : '',
+      salary: newFilters['salary_range']?.length > 0 ? newFilters['salary_range'][0] : '',
+      datePosted: newFilters['date_posted']?.length > 0 ? newFilters['date_posted'][0] : '',
+    }));
+  };
+
+  const applyJobFilters = async (formattedFilters?: Record<string, any>) => {
     setIsFiltering(true);
     try {
-      await applyFilters(filters);
+      // If formatted filters are provided directly, use them
+      // Otherwise use our current filters state
+      const filtersToApply = formattedFilters || {
+        jobType: filters.jobType,
+        experienceLevel: filters.experienceLevel,
+        industry: filters.industry,
+        isRemote: filters.isRemote,
+        location: filters.location,
+        salary: filters.salary,
+        datePosted: filters.datePosted
+      };
+      
+      await applyFilters(filtersToApply);
     } catch (error) {
       console.error('Error in applyJobFilters:', error);
       toast({
@@ -229,308 +254,83 @@ const JobSwipe = () => {
                 </Button>
               </div>
               <div className="p-4 space-y-5">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                    <Search className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <input 
-                    type="text" 
-                    placeholder="Search by title, skill, or company" 
-                    className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
+                {/* Replace with our new JobFilters component */}
+                <JobFilters 
+                  onFilterChange={handleJobFiltersChange} 
+                  onApplyFilters={applyJobFilters}
+                  isFiltering={isFiltering}
+                />
                 
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Location</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <input 
-                            type="text" 
-                            placeholder="City, state, or zip code" 
-                            className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
-                            readOnly
-                            value={filters.location}
-                          />
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="Search location..." />
-                            <CommandList>
-                              <CommandEmpty>No locations found.</CommandEmpty>
-                              <CommandGroup heading="Popular Cities">
-                                <CommandItem onSelect={() => handleFilterChange("location", "Remote")}>
-                                  Remote
-                                </CommandItem>
-                                <CommandItem onSelect={() => handleFilterChange("location", "New York, NY")}>
-                                  New York, NY
-                                </CommandItem>
-                                <CommandItem onSelect={() => handleFilterChange("location", "San Francisco, CA")}>
-                                  San Francisco, CA
-                                </CommandItem>
-                                <CommandItem onSelect={() => handleFilterChange("location", "Seattle, WA")}>
-                                  Seattle, WA
-                                </CommandItem>
-                                <CommandItem onSelect={() => handleFilterChange("location", "Austin, TX")}>
-                                  Austin, TX
-                                </CommandItem>
-                                <CommandItem onSelect={() => handleFilterChange("location", "Chicago, IL")}>
-                                  Chicago, IL
-                                </CommandItem>
-                                <CommandItem onSelect={() => handleFilterChange("location", "Boston, MA")}>
-                                  Boston, MA
-                                </CommandItem>
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+                {/* Keep the location search input separate */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Location</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Toggle 
-                        size="sm" 
-                        aria-label="Toggle remote"
-                        pressed={filters.isRemote}
-                        onPressedChange={(pressed) => handleFilterChange("isRemote", pressed)}
-                      >
-                        <Globe className="h-3.5 w-3.5 mr-1" />
-                        <span className="text-xs">Remote only</span>
-                      </Toggle>
-                      <Toggle 
-                        size="sm" 
-                        aria-label="Toggle hybrid"
-                        pressed={filters.isHybrid}
-                        onPressedChange={(pressed) => handleFilterChange("isHybrid", pressed)}
-                      >
-                        <Building className="h-3.5 w-3.5 mr-1" />
-                        <span className="text-xs">Hybrid</span>
-                      </Toggle>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Job Type</label>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="w-full justify-between">
-                          <span>{filters.jobType.length ? `${filters.jobType.length} selected` : "Select job types"}</span>
-                          <ChevronDown className="h-4 w-4 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-56 bg-background border border-border shadow-md" align="start">
-                        <DropdownMenuLabel>Job Types</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                          {jobTypeOptions.map((option) => (
-                            <DropdownMenuItem 
-                              key={option.value}
-                              className="cursor-pointer"
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                const newJobTypes = filters.jobType.includes(option.value)
-                                  ? filters.jobType.filter(t => t !== option.value)
-                                  : [...filters.jobType, option.value];
-                                handleFilterChange("jobType", newJobTypes);
-                              }}
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className={`w-4 h-4 border rounded flex items-center justify-center ${filters.jobType.includes(option.value) ? 'bg-primary border-primary' : 'border-input'}`}>
-                                  {filters.jobType.includes(option.value) && <Check className="h-3 w-3 text-white" />}
-                                </div>
-                                <span>{option.label}</span>
-                              </div>
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Experience Level</label>
-                    <Select 
-                      value={filters.experienceLevel} 
-                      onValueChange={(value) => handleFilterChange("experienceLevel", value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select level" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover border border-border shadow-md">
-                        <SelectGroup>
-                          <SelectLabel>Experience Level</SelectLabel>
-                          {experienceLevelOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Salary Range</label>
-                    <Select
-                      value={filters.salary}
-                      onValueChange={(value) => handleFilterChange("salary", value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select range" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover border border-border shadow-md">
-                        <SelectGroup>
-                          <SelectLabel>Salary Range</SelectLabel>
-                          {salaryRangeOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Date Posted</label>
-                    <Select
-                      value={filters.datePosted}
-                      onValueChange={(value) => handleFilterChange("datePosted", value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Any time" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover border border-border shadow-md">
-                        <SelectGroup>
-                          <SelectLabel>Date Posted</SelectLabel>
-                          {datePostedOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Industry</label>
-                    <Select
-                      value={filters.industry}
-                      onValueChange={(value) => handleFilterChange("industry", value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select industry" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover border border-border shadow-md max-h-80">
-                        <SelectGroup>
-                          <SelectLabel>Industry</SelectLabel>
-                          {industryOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Job Function</label>
-                    <Select>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select job function" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover border border-border shadow-md max-h-80">
-                        <SelectGroup>
-                          <SelectLabel>Job Function</SelectLabel>
-                          {jobFunctionOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Education</label>
-                    <Select>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select education" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover border border-border shadow-md">
-                        <SelectGroup>
-                          <SelectLabel>Education</SelectLabel>
-                          {educationOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="pt-2">
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="w-full justify-between">
-                          <div className="flex items-center gap-2">
-                            <GraduationCap className="h-4 w-4" />
-                            <span>Skills</span>
-                          </div>
-                          <span className="text-xs bg-secondary rounded-full px-2 py-0.5">+</span>
-                        </Button>
+                        <input 
+                          type="text" 
+                          placeholder="City, state, or zip code" 
+                          className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+                          readOnly
+                          value={filters.location}
+                        />
                       </PopoverTrigger>
                       <PopoverContent className="w-80 p-0" align="start">
                         <Command>
-                          <CommandInput placeholder="Search skills..." />
-                          <CommandList className="max-h-80">
-                            <CommandEmpty>No skills found.</CommandEmpty>
-                            <CommandGroup heading="Popular Skills">
-                              {skillsOptions.map((skill) => (
-                                <CommandItem key={skill.value}>
-                                  {skill.label}
-                                </CommandItem>
-                              ))}
+                          <CommandInput placeholder="Search location..." />
+                          <CommandList>
+                            <CommandEmpty>No locations found.</CommandEmpty>
+                            <CommandGroup heading="Popular Cities">
+                              <CommandItem onSelect={() => handleFilterChange("location", "Remote")}>
+                                Remote
+                              </CommandItem>
+                              <CommandItem onSelect={() => handleFilterChange("location", "New York, NY")}>
+                                New York, NY
+                              </CommandItem>
+                              <CommandItem onSelect={() => handleFilterChange("location", "San Francisco, CA")}>
+                                San Francisco, CA
+                              </CommandItem>
+                              <CommandItem onSelect={() => handleFilterChange("location", "Seattle, WA")}>
+                                Seattle, WA
+                              </CommandItem>
+                              <CommandItem onSelect={() => handleFilterChange("location", "Austin, TX")}>
+                                Austin, TX
+                              </CommandItem>
+                              <CommandItem onSelect={() => handleFilterChange("location", "Chicago, IL")}>
+                                Chicago, IL
+                              </CommandItem>
+                              <CommandItem onSelect={() => handleFilterChange("location", "Boston, MA")}>
+                                Boston, MA
+                              </CommandItem>
                             </CommandGroup>
                           </CommandList>
                         </Command>
                       </PopoverContent>
                     </Popover>
                   </div>
-                </div>
-                
-                <div className="flex items-center justify-between gap-4 pt-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={resetJobFilters}
-                    disabled={isFiltering}
-                  >
-                    Reset
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={applyJobFilters}
-                    disabled={isFiltering}
-                  >
-                    {isFiltering ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Applying...
-                      </>
-                    ) : (
-                      "Apply Filters"
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Toggle 
+                      size="sm" 
+                      aria-label="Toggle remote"
+                      pressed={filters.isRemote}
+                      onPressedChange={(pressed) => handleFilterChange("isRemote", pressed)}
+                    >
+                      <Globe className="h-3.5 w-3.5 mr-1" />
+                      <span className="text-xs">Remote only</span>
+                    </Toggle>
+                    <Toggle 
+                      size="sm" 
+                      aria-label="Toggle hybrid"
+                      pressed={filters.isHybrid}
+                      onPressedChange={(pressed) => handleFilterChange("isHybrid", pressed)}
+                    >
+                      <Building className="h-3.5 w-3.5 mr-1" />
+                      <span className="text-xs">Hybrid</span>
+                    </Toggle>
+                  </div>
                 </div>
               </div>
             </div>

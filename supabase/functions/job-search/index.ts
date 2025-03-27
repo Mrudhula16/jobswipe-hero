@@ -57,7 +57,13 @@ function generateLinkedInJobs(filters: any = {}, count: number = 10) {
   // Filter logic
   const filteredJobs = [];
   
-  for (let i = 0; i < count; i++) {
+  // Helper function to check if job matches filter criteria
+  const matchesFilter = (key: string, jobValue: string, filterValues: string[]) => {
+    if (!filterValues || filterValues.length === 0) return true;
+    return filterValues.some(filter => jobValue.toLowerCase().includes(filter.toLowerCase()));
+  };
+  
+  for (let i = 0; i < count * 2; i++) { // Generate more jobs and filter them down
     const randomCompany = companies[Math.floor(Math.random() * companies.length)];
     const randomLocation = locations[Math.floor(Math.random() * locations.length)];
     const randomJobType = jobTypes[Math.floor(Math.random() * jobTypes.length)];
@@ -96,24 +102,32 @@ function generateLinkedInJobs(filters: any = {}, count: number = 10) {
     let matchesFilters = true;
     
     if (filters) {
-      // Filter by job title
-      if (filters.jobTitle && !job.title.toLowerCase().includes(filters.jobTitle.toLowerCase())) {
-        matchesFilters = false;
+      // Filter by job type
+      if (filters.jobType && filters.jobType.length > 0) {
+        const jobTypeMatch = filters.jobType.some((type: string) => 
+          job.type.toLowerCase().includes(type.toLowerCase())
+        );
+        if (!jobTypeMatch) matchesFilters = false;
       }
       
       // Filter by location
-      if (filters.location && !job.location.toLowerCase().includes(filters.location.toLowerCase())) {
+      if (filters.location && filters.location !== "") {
+        if (!job.location.toLowerCase().includes(filters.location.toLowerCase())) {
+          matchesFilters = false;
+        }
+      }
+      
+      // Filter by remote
+      if (filters.isRemote === true && !job.location.toLowerCase().includes("remote")) {
         matchesFilters = false;
       }
       
-      // Filter by company
-      if (filters.company && !job.company.toLowerCase().includes(filters.company.toLowerCase())) {
-        matchesFilters = false;
-      }
-      
-      // Filter by employment type
-      if (filters.employmentType && job.type !== filters.employmentType) {
-        matchesFilters = false;
+      // Filter by industry (simulated by company since we don't have real industry data)
+      if (filters.industry && filters.industry !== "") {
+        // This is a simulated match since we don't have real industry data
+        if (Math.random() > 0.7) { // 70% chance of matching if filter is applied
+          matchesFilters = false;
+        }
       }
       
       // Filter by skills/requirements
@@ -125,10 +139,35 @@ function generateLinkedInJobs(filters: any = {}, count: number = 10) {
           matchesFilters = false;
         }
       }
+      
+      // Filter by experience level (simulated)
+      if (filters.experienceLevel && filters.experienceLevel !== "") {
+        // Simulated match based on job title
+        const senior = job.title.toLowerCase().includes("senior") || job.title.toLowerCase().includes("lead");
+        const mid = job.title.toLowerCase().includes("developer") || job.title.toLowerCase().includes("engineer");
+        const entry = job.title.toLowerCase().includes("junior") || job.title.toLowerCase().includes("associate");
+        
+        if (filters.experienceLevel === "senior" && !senior) matchesFilters = false;
+        if (filters.experienceLevel === "mid" && !mid) matchesFilters = false;
+        if (filters.experienceLevel === "entry" && !entry) matchesFilters = false;
+      }
+      
+      // Filter by salary range (simulated)
+      if (filters.salary && filters.salary !== "") {
+        const salaryValue = parseInt(job.salary.replace(/[^0-9]/g, ""));
+        
+        if (filters.salary === "0-50k" && salaryValue > 50000) matchesFilters = false;
+        if (filters.salary === "50k-75k" && (salaryValue < 50000 || salaryValue > 75000)) matchesFilters = false;
+        if (filters.salary === "75k-100k" && (salaryValue < 75000 || salaryValue > 100000)) matchesFilters = false;
+        if (filters.salary === "100k-150k" && (salaryValue < 100000 || salaryValue > 150000)) matchesFilters = false;
+        if (filters.salary === "150k-200k" && (salaryValue < 150000 || salaryValue > 200000)) matchesFilters = false;
+        if (filters.salary === "200k+" && salaryValue < 200000) matchesFilters = false;
+      }
     }
     
     if (matchesFilters) {
       filteredJobs.push(job);
+      if (filteredJobs.length >= count) break; // Stop once we have enough matching jobs
     }
   }
   
@@ -145,10 +184,15 @@ serve(async (req) => {
     const { filters = {}, count = 10, lastJobId, source = "generic" } = await req.json();
     console.log(`Received job search request. Source: ${source}, Filters:`, filters);
     
-    // For LinkedIn jobs, use our mock generator
+    // For LinkedIn jobs, use our mock generator with enhanced filtering
     if (source === "linkedin") {
       const jobs = generateLinkedInJobs(filters, count);
-      console.log(`Generated ${jobs.length} LinkedIn jobs`);
+      console.log(`Generated ${jobs.length} LinkedIn jobs with filters`, {
+        filtersApplied: Object.keys(filters).filter(key => 
+          filters[key] && 
+          (Array.isArray(filters[key]) ? filters[key].length > 0 : filters[key] !== "")
+        )
+      });
       
       return new Response(
         JSON.stringify({ jobs }),
@@ -175,8 +219,12 @@ serve(async (req) => {
       query = query.ilike('company', `%${filters.company}%`);
     }
     
-    if (filters.employmentType) {
-      query = query.eq('type', filters.employmentType);
+    if (filters.jobType && filters.jobType.length > 0) {
+      // Handle array of job types
+      const jobTypeConditions = filters.jobType.map((type: string) => 
+        `type.ilike.%${type}%`
+      );
+      query = query.or(jobTypeConditions.join(','));
     }
     
     // Pagination using lastJobId

@@ -20,6 +20,21 @@ export interface Job {
   sourceId?: string;
 }
 
+// Filter option types
+export interface FilterOption {
+  id: string;
+  value: string;
+  label: string;
+  description?: string;
+}
+
+export interface FilterCategory {
+  id: string;
+  name: string;
+  description?: string;
+  options: FilterOption[];
+}
+
 import { supabase } from "@/integrations/supabase/client";
 
 // Simulate network delays for more realistic API behavior
@@ -110,10 +125,94 @@ export const applyToJob = async (jobId: string): Promise<boolean> => {
   }
 };
 
+// Fetch job filter categories and options from the database
+export const getJobFilterCategories = async (): Promise<FilterCategory[]> => {
+  try {
+    // First, fetch all categories
+    const { data: categories, error: categoriesError } = await supabase
+      .from('job_filter_categories')
+      .select('*')
+      .order('name');
+    
+    if (categoriesError) throw categoriesError;
+    
+    // Next, fetch all options
+    const { data: options, error: optionsError } = await supabase
+      .from('job_filter_options')
+      .select('*')
+      .order('label');
+    
+    if (optionsError) throw optionsError;
+    
+    // Organize options by category
+    const categoryMap: Record<string, FilterCategory> = {};
+    
+    if (categories) {
+      categories.forEach(category => {
+        categoryMap[category.id] = {
+          ...category,
+          options: []
+        };
+      });
+    }
+    
+    if (options) {
+      options.forEach(option => {
+        if (categoryMap[option.category_id]) {
+          categoryMap[option.category_id].options.push({
+            id: option.id,
+            value: option.value,
+            label: option.label,
+            description: option.description
+          });
+        }
+      });
+    }
+    
+    return Object.values(categoryMap);
+  } catch (error) {
+    console.error("Error fetching job filter categories:", error);
+    return [];
+  }
+};
+
+// Get options for a specific category
+export const getFilterOptionsByCategory = async (categoryName: string): Promise<FilterOption[]> => {
+  try {
+    const { data: category, error: categoryError } = await supabase
+      .from('job_filter_categories')
+      .select('id')
+      .eq('name', categoryName)
+      .single();
+    
+    if (categoryError) throw categoryError;
+    
+    const { data: options, error: optionsError } = await supabase
+      .from('job_filter_options')
+      .select('*')
+      .eq('category_id', category.id)
+      .order('label');
+    
+    if (optionsError) throw optionsError;
+    
+    return options.map(option => ({
+      id: option.id,
+      value: option.value,
+      label: option.label,
+      description: option.description
+    }));
+  } catch (error) {
+    console.error(`Error fetching options for category ${categoryName}:`, error);
+    return [];
+  }
+};
+
 export default {
   getJobs,
   getMoreJobs,
   getFilteredJobs,
   saveJob,
-  applyToJob
+  applyToJob,
+  getJobFilterCategories,
+  getFilterOptionsByCategory
 };
