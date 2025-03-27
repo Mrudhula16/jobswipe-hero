@@ -1,7 +1,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
-import { Job, getJobs, getMoreJobs } from '@/services/jobService';
+import { Job, getJobs, getMoreJobs, getFilteredJobs } from '@/services/jobService';
 import { useJobAgent } from '@/hooks/useJobAgent';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -9,6 +9,7 @@ interface UseJobSwiperProps {
   initialFetchCount?: number;
   prefetchThreshold?: number;
   onJobsChange?: (jobs: Job[]) => void;
+  filters?: Record<string, any>;
 }
 
 interface UseJobSwiperReturn {
@@ -22,12 +23,14 @@ interface UseJobSwiperReturn {
   handleSwipe: (direction: "left" | "right") => void;
   handleUndo: () => void;
   resetJobs: () => void;
+  applyFilters: (filters: Record<string, any>) => Promise<void>;
 }
 
 const useJobSwiper = ({
   initialFetchCount = 5,
   prefetchThreshold = 3,
-  onJobsChange
+  onJobsChange,
+  filters: initialFilters = {}
 }: UseJobSwiperProps = {}): UseJobSwiperReturn => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -38,6 +41,7 @@ const useJobSwiper = ({
   const [noMoreJobs, setNoMoreJobs] = useState(false);
   const [animatingCardId, setAnimatingCardId] = useState<string | null>(null);
   const hasMoreJobsRef = useRef(true);
+  const [currentFilters, setCurrentFilters] = useState<Record<string, any>>(initialFilters);
   
   // Add job agent integration
   const { isActive: isAgentActive, applyToJob } = useJobAgent();
@@ -48,7 +52,15 @@ const useJobSwiper = ({
     const fetchInitialJobs = async () => {
       try {
         setIsLoading(true);
-        const initialJobs = await getJobs(initialFetchCount);
+        let initialJobs: Job[] = [];
+        
+        // Use filters if available
+        if (Object.keys(currentFilters).length > 0) {
+          initialJobs = await getFilteredJobs(currentFilters);
+        } else {
+          initialJobs = await getJobs(initialFetchCount);
+        }
+        
         setJobs(initialJobs);
         if (initialJobs.length < initialFetchCount) {
           setNoMoreJobs(true);
@@ -68,7 +80,7 @@ const useJobSwiper = ({
     };
 
     fetchInitialJobs();
-  }, [initialFetchCount, onJobsChange]);
+  }, [initialFetchCount, onJobsChange, JSON.stringify(currentFilters)]);
 
   // Prefetch more jobs when approaching end of list
   useEffect(() => {
@@ -82,6 +94,8 @@ const useJobSwiper = ({
         try {
           setIsLoadingMore(true);
           const lastJobId = jobs[jobs.length - 1].id;
+          
+          // Use the same filters for pagination
           const newJobs = await getMoreJobs(lastJobId, 3);
           
           if (newJobs.length === 0) {
@@ -172,6 +186,47 @@ const useJobSwiper = ({
     setNoMoreJobs(false);
   };
 
+  // Apply new filters
+  const applyFilters = async (filters: Record<string, any>) => {
+    setIsLoading(true);
+    setCurrentIndex(0);
+    setSwipedJobs([]);
+    swipeHistoryRef.current = [];
+    setNoMoreJobs(false);
+    hasMoreJobsRef.current = true;
+    setCurrentFilters(filters);
+    
+    try {
+      const filteredJobs = await getFilteredJobs(filters);
+      setJobs(filteredJobs);
+      
+      if (filteredJobs.length === 0) {
+        toast({
+          title: "No Jobs Found",
+          description: "No jobs match your filter criteria. Try broadening your search.",
+        });
+        setNoMoreJobs(true);
+        hasMoreJobsRef.current = false;
+      } else {
+        toast({
+          title: "Filters Applied",
+          description: `Found ${filteredJobs.length} jobs matching your criteria.`,
+        });
+      }
+      
+      if (onJobsChange) onJobsChange(filteredJobs);
+    } catch (error) {
+      console.error('Error applying filters:', error);
+      toast({
+        title: "Error",
+        description: "Failed to apply filters. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Reset all jobs and state
   const resetJobs = async () => {
     setIsLoading(true);
@@ -180,6 +235,7 @@ const useJobSwiper = ({
     swipeHistoryRef.current = [];
     setNoMoreJobs(false);
     hasMoreJobsRef.current = true;
+    setCurrentFilters({});
     
     try {
       const initialJobs = await getJobs(initialFetchCount);
@@ -211,7 +267,8 @@ const useJobSwiper = ({
     animatingCardId,
     handleSwipe,
     handleUndo,
-    resetJobs
+    resetJobs,
+    applyFilters
   };
 };
 

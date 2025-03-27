@@ -21,6 +21,16 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
     const { jobDetails, userId } = await req.json();
 
+    console.log('Received application request for job:', jobDetails.title);
+    
+    // In a real-world implementation, this is where you would:
+    // 1. Parse the job application page
+    // 2. Fill out the application form
+    // 3. Submit the application
+    // 4. Parse the response to determine success
+    
+    // For this demo, we'll simulate the application process
+    
     // Record the job application attempt
     const { data: applicationData, error: applicationError } = await supabase
       .from('job_applications')
@@ -30,25 +40,74 @@ serve(async (req) => {
         company: jobDetails.company,
         job_url: jobDetails.applicationUrl || jobDetails.url,
         status: 'pending',
-        auto_applied: true
+        auto_applied: true,
+        notes: `Auto-applied via AI Job Agent on ${new Date().toLocaleString()}`
       })
       .select()
       .single();
 
-    if (applicationError) throw applicationError;
+    if (applicationError) {
+      console.error('Error recording job application:', applicationError);
+      throw applicationError;
+    }
 
-    // Simulate auto-application (this would be replaced with actual LinkedIn/job site automation)
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: `Successfully applied to ${jobDetails.title} at ${jobDetails.company}`,
-        applicationId: applicationData.id 
-      }), 
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    // Simulate the application process
+    // In a real implementation, this is where you would use techniques like:
+    // - Headless browsers (Playwright/Puppeteer) for form filling
+    // - OAuth integrations with LinkedIn API
+    // - Resume parsing and matching
+    
+    console.log('Successfully recorded application, id:', applicationData.id);
+    
+    // Simulate application success (80% success rate)
+    const isSuccessful = Math.random() < 0.8;
+    
+    if (isSuccessful) {
+      // Update application status to applied
+      const { error: updateError } = await supabase
+        .from('job_applications')
+        .update({ status: 'applied' })
+        .eq('id', applicationData.id);
+        
+      if (updateError) {
+        console.error('Error updating application status:', updateError);
       }
-    );
-
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: `Successfully applied to ${jobDetails.title} at ${jobDetails.company}`,
+          applicationId: applicationData.id 
+        }), 
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    } else {
+      // Update application status to failed
+      const { error: updateError } = await supabase
+        .from('job_applications')
+        .update({ 
+          status: 'failed',
+          notes: `${applicationData.notes}\n\nApplication failed: Could not complete the application process automatically.`
+        })
+        .eq('id', applicationData.id);
+        
+      if (updateError) {
+        console.error('Error updating application failure:', updateError);
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: `Could not complete application to ${jobDetails.title}. The job has been saved for manual application.`,
+          applicationId: applicationData.id 
+        }), 
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
   } catch (error) {
     console.error('Error in job-auto-apply function:', error);
     return new Response(

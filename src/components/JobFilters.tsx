@@ -102,9 +102,11 @@ const filterGroups: FilterGroup[] = [
 
 interface JobFiltersProps {
   onFilterChange?: (filters: Record<string, string[]>) => void;
+  onApplyFilters?: (filters: Record<string, any>) => void;
+  isFiltering?: boolean;
 }
 
-const JobFilters = ({ onFilterChange }: JobFiltersProps) => {
+const JobFilters = ({ onFilterChange, onApplyFilters, isFiltering = false }: JobFiltersProps) => {
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>(
     Object.fromEntries(filterGroups.map(group => [group.name, []]))
   );
@@ -139,6 +141,21 @@ const JobFilters = ({ onFilterChange }: JobFiltersProps) => {
     setSelectedFilters(emptyFilters);
     if (onFilterChange) {
       onFilterChange(emptyFilters);
+    }
+  };
+
+  const applyFilters = () => {
+    if (onApplyFilters) {
+      // Convert selected filters to format expected by the API
+      const formattedFilters = {
+        jobType: selectedFilters['Job Type'],
+        experienceLevel: selectedFilters['Experience Level'].length > 0 ? selectedFilters['Experience Level'][0] : '',
+        industry: selectedFilters['Industry'].length > 0 ? selectedFilters['Industry'][0] : '',
+        skills: selectedFilters['Skills'],
+        jobFunction: selectedFilters['Job Type']
+      };
+      
+      onApplyFilters(formattedFilters);
     }
   };
 
@@ -237,6 +254,23 @@ const JobFilters = ({ onFilterChange }: JobFiltersProps) => {
           ))}
         </div>
       )}
+      
+      <div className="pt-4 flex justify-end">
+        <Button 
+          onClick={applyFilters} 
+          disabled={isFiltering}
+          size="sm"
+        >
+          {isFiltering ? (
+            <>
+              <span className="mr-2">Applying...</span>
+              <span className="animate-spin">⟳</span>
+            </>
+          ) : (
+            'Apply Filters'
+          )}
+        </Button>
+      </div>
     </div>
   );
 };

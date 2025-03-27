@@ -51,7 +51,8 @@ const JobSwipe = () => {
     animatingCardId,
     handleSwipe,
     handleUndo,
-    resetJobs
+    resetJobs,
+    applyFilters
   } = useJobSwiper({
     initialFetchCount: 5,
     prefetchThreshold: 2
@@ -67,17 +68,12 @@ const JobSwipe = () => {
     }));
   };
 
-  const applyFilters = async () => {
+  const applyJobFilters = async () => {
     setIsFiltering(true);
     try {
-      const filteredJobs = await getFilteredJobs(filters);
-      toast({
-        title: "Filters Applied",
-        description: `Found ${filteredJobs.length} jobs matching your criteria.`,
-      });
-      resetJobs();
+      await applyFilters(filters);
     } catch (error) {
-      console.error('Error applying filters:', error);
+      console.error('Error in applyJobFilters:', error);
       toast({
         title: "Error",
         description: "Failed to apply filters. Please try again.",
@@ -88,7 +84,7 @@ const JobSwipe = () => {
     }
   };
 
-  const resetFilters = () => {
+  const resetJobFilters = () => {
     setFilters({
       jobType: [],
       experienceLevel: "",
@@ -99,6 +95,7 @@ const JobSwipe = () => {
       isRemote: false,
       isHybrid: false,
     });
+    resetJobs();
     toast({
       title: "Filters Reset",
       description: "All filters have been cleared.",
@@ -514,7 +511,7 @@ const JobSwipe = () => {
                     variant="outline" 
                     size="sm" 
                     className="flex-1"
-                    onClick={resetFilters}
+                    onClick={resetJobFilters}
                     disabled={isFiltering}
                   >
                     Reset
@@ -522,7 +519,7 @@ const JobSwipe = () => {
                   <Button 
                     size="sm" 
                     className="flex-1"
-                    onClick={applyFilters}
+                    onClick={applyJobFilters}
                     disabled={isFiltering}
                   >
                     {isFiltering ? (
