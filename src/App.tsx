@@ -14,6 +14,7 @@ import { AnimatePresence } from "framer-motion";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./hooks/useAuth";
 import { useState } from "react";
+import CustomerServiceBot from "./components/CustomerServiceBot";
 
 const App = () => {
   // Move QueryClient initialization inside the component
@@ -38,6 +39,7 @@ const App = () => {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AnimatePresence>
+            <CustomerServiceBot />
           </TooltipProvider>
         </AuthProvider>
       </BrowserRouter>
