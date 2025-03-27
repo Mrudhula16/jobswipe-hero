@@ -16,6 +16,8 @@ export interface Job {
   isNew?: boolean;
   url?: string;
   applicationUrl?: string;
+  source?: string;
+  sourceId?: string;
 }
 
 import { supabase } from "@/integrations/supabase/client";
@@ -27,7 +29,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const getJobs = async (count: number = 5): Promise<Job[]> => {
   try {
     const { data, error } = await supabase.functions.invoke('job-search', {
-      body: { filters: {}, count }
+      body: { filters: {}, count, source: "linkedin" }
     });
     
     if (error) throw error;
@@ -44,7 +46,7 @@ export const getJobs = async (count: number = 5): Promise<Job[]> => {
 export const getMoreJobs = async (lastJobId: string, count: number = 3): Promise<Job[]> => {
   try {
     const { data, error } = await supabase.functions.invoke('job-search', {
-      body: { lastJobId, count }
+      body: { lastJobId, count, source: "linkedin" }
     });
     
     if (error) throw error;
@@ -60,7 +62,7 @@ export const getMoreJobs = async (lastJobId: string, count: number = 3): Promise
 export const getFilteredJobs = async (filters: any): Promise<Job[]> => {
   try {
     const { data, error } = await supabase.functions.invoke('job-search', {
-      body: { filters }
+      body: { filters, source: "linkedin" }
     });
     
     if (error) throw error;

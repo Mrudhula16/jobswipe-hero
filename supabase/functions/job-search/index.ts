@@ -11,131 +11,129 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Sample job data generator with LinkedIn-like structure
-const generateJobs = (filters: any) => {
+// Mock LinkedIn job data generator with realistic details
+function generateLinkedInJobs(filters: any = {}, count: number = 10) {
   const companies = [
-    { name: "Google", logo: "https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg" },
-    { name: "Microsoft", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Microsoft_logo.svg/512px-Microsoft_logo.svg.png" },
-    { name: "Amazon", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Amazon_logo.svg/1200px-Amazon_logo.svg.png" },
-    { name: "Apple", logo: "https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" },
-    { name: "Meta", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Meta_Platforms_Inc._logo.svg/1200px-Meta_Platforms_Inc._logo.svg.png" },
-    { name: "Netflix", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Netflix_2015_logo.svg/1200px-Netflix_2015_logo.svg.png" },
-    { name: "Airbnb", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Airbnb_logo_B%C3%A9lo.svg/1200px-Airbnb_logo_B%C3%A9lo.svg.png" },
-    { name: "Uber", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Uber_logo_2018.svg/1200px-Uber_logo_2018.svg.png" },
-    { name: "LinkedIn", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/LinkedIn_logo_initials.png/800px-LinkedIn_logo_initials.png" }
+    { name: "Google", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/2048px-Google_%22G%22_Logo.svg.png" },
+    { name: "Microsoft", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Microsoft_logo.svg/2048px-Microsoft_logo.svg.png" },
+    { name: "Amazon", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Amazon_logo.svg/2560px-Amazon_logo.svg.png" },
+    { name: "Meta", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Meta_Platforms_Inc._logo.svg/2560px-Meta_Platforms_Inc._logo.svg.png" },
+    { name: "Apple", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/1667px-Apple_logo_black.svg.png" },
+    { name: "Netflix", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Netflix_2015_logo.svg/2560px-Netflix_2015_logo.svg.png" },
+    { name: "Tesla", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Tesla_Motors.svg/2560px-Tesla_Motors.svg.png" },
+    { name: "IBM", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/IBM_logo.svg/2560px-IBM_logo.svg.png" },
+    { name: "Salesforce", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Salesforce.com_logo.svg/2560px-Salesforce.com_logo.svg.png" },
+    { name: "Adobe", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Adobe_Systems_logo_and_wordmark.svg/1280px-Adobe_Systems_logo_and_wordmark.svg.png" }
   ];
   
-  const locations = [
-    "San Francisco, CA", "New York, NY", "Seattle, WA", "Austin, TX", 
-    "Chicago, IL", "Boston, MA", "Los Angeles, CA", "Denver, CO", "Remote"
+  const locations = ["San Francisco, CA", "New York, NY", "Seattle, WA", "Austin, TX", "Boston, MA", "Chicago, IL", "Los Angeles, CA", "Remote"];
+  
+  const jobTypes = [
+    { title: "Software Engineer", requirements: ["JavaScript", "React", "Node.js", "TypeScript", "AWS"] },
+    { title: "Product Manager", requirements: ["Product Strategy", "User Research", "Roadmapping", "Agile", "Data Analysis"] },
+    { title: "Data Scientist", requirements: ["Python", "SQL", "Machine Learning", "Statistics", "Data Visualization"] },
+    { title: "UX Designer", requirements: ["Figma", "User Research", "Prototyping", "UI Design", "User Testing"] },
+    { title: "DevOps Engineer", requirements: ["Kubernetes", "Docker", "CI/CD", "Cloud Platforms", "Infrastructure as Code"] },
+    { title: "Frontend Developer", requirements: ["HTML", "CSS", "JavaScript", "React", "Vue.js"] },
+    { title: "Backend Developer", requirements: ["Node.js", "Python", "Java", "Databases", "API Design"] },
+    { title: "Full Stack Developer", requirements: ["JavaScript", "React", "Node.js", "MongoDB", "AWS"] },
+    { title: "Machine Learning Engineer", requirements: ["Python", "TensorFlow", "PyTorch", "Computer Vision", "NLP"] },
+    { title: "iOS Developer", requirements: ["Swift", "Objective-C", "UIKit", "CoreData", "REST APIs"] }
   ];
   
-  const jobTitles = [
-    "Software Engineer", "Frontend Developer", "Backend Developer", "Product Manager",
-    "UX Designer", "Data Scientist", "DevOps Engineer", "Machine Learning Engineer",
-    "Technical Product Manager", "Full Stack Developer", "Mobile Developer"
-  ];
+  const employmentTypes = ["Full-time", "Part-time", "Contract", "Remote"];
   
-  const skills = [
-    "JavaScript", "React", "TypeScript", "Python", "Node.js", "AWS", "SQL", "Java",
-    "Docker", "Kubernetes", "GraphQL", "CI/CD", "Git", "REST APIs", "HTML/CSS"
+  const salaryRanges = ["$120K - $150K", "$90K - $120K", "$150K - $180K", "$80K - $100K", "$180K - $220K"];
+  
+  const timePeriods = [
+    "Posted 2 hours ago", 
+    "Posted today", 
+    "Posted yesterday", 
+    "Posted 2 days ago", 
+    "Posted 3 days ago", 
+    "Posted 1 week ago"
   ];
 
-  const jobTypes = ["Full-time", "Part-time", "Contract", "Remote", "Hybrid"];
-
-  // Apply filters if provided
-  let filteredTitles = [...jobTitles];
-  let filteredLocations = [...locations];
-  let filteredCompanies = [...companies];
-  let filteredJobTypes = [...jobTypes];
-  
-  if (filters) {
-    // Filter by job title/function
-    if (filters.jobFunction) {
-      const searchTerms = Array.isArray(filters.jobFunction) ? filters.jobFunction : [filters.jobFunction];
-      filteredTitles = jobTitles.filter(title => 
-        searchTerms.some(term => title.toLowerCase().includes(term.toLowerCase()))
-      );
-    }
-    
-    // Filter by location or remote
-    if (filters.location) {
-      filteredLocations = locations.filter(loc => loc.toLowerCase().includes(filters.location.toLowerCase()));
-    }
-    
-    if (filters.isRemote) {
-      filteredLocations = ["Remote"];
-    }
-    
-    // Filter by job type
-    if (filters.jobType && Array.isArray(filters.jobType) && filters.jobType.length > 0) {
-      filteredJobTypes = jobTypes.filter(type => 
-        filters.jobType.some((jt: string) => type.toLowerCase().includes(jt.toLowerCase()))
-      );
-    }
-  }
-  
-  // Generate random jobs based on filtered options
-  const count = Math.min(10, Math.max(3, Math.floor(Math.random() * 10) + 3));
-  const jobs = [];
+  // Filter logic
+  const filteredJobs = [];
   
   for (let i = 0; i < count; i++) {
-    const company = filteredCompanies[Math.floor(Math.random() * filteredCompanies.length)];
-    const title = filteredTitles[Math.floor(Math.random() * filteredTitles.length)];
-    const location = filteredLocations[Math.floor(Math.random() * filteredLocations.length)];
-    const jobType = filteredJobTypes[Math.floor(Math.random() * filteredJobTypes.length)];
+    const randomCompany = companies[Math.floor(Math.random() * companies.length)];
+    const randomLocation = locations[Math.floor(Math.random() * locations.length)];
+    const randomJobType = jobTypes[Math.floor(Math.random() * jobTypes.length)];
+    const randomEmploymentType = employmentTypes[Math.floor(Math.random() * employmentTypes.length)];
+    const randomSalary = salaryRanges[Math.floor(Math.random() * salaryRanges.length)];
+    const randomTimePeriod = timePeriods[Math.floor(Math.random() * timePeriods.length)];
     
-    // Generate random skills required for the job
-    const requiredSkills = [];
-    const skillCount = Math.floor(Math.random() * 5) + 3;
-    const shuffledSkills = [...skills].sort(() => 0.5 - Math.random());
-    requiredSkills.push(...shuffledSkills.slice(0, skillCount));
+    const linkedInId = `li-${crypto.randomUUID().slice(0, 8)}`;
+    const jobDesc = `We are looking for a talented ${randomJobType.title} to join our team. You will work on exciting projects and collaborate with cross-functional teams to build innovative solutions. The ideal candidate has experience with ${randomJobType.requirements.slice(0, 3).join(", ")}.`;
     
-    // Generate random years of experience
-    const minYears = Math.floor(Math.random() * 3) + 1;
-    const maxYears = minYears + Math.floor(Math.random() * 5) + 2;
-    requiredSkills.push(`${minYears}-${maxYears} years experience`);
+    // Generate LinkedIn URL and application URL
+    const linkedInBaseUrl = "https://www.linkedin.com/jobs/view/";
+    const jobUrl = `${linkedInBaseUrl}${linkedInId}`;
+    const applicationUrl = `${linkedInBaseUrl}${linkedInId}/apply`;
     
-    // Generate random posted date
-    const daysAgo = Math.floor(Math.random() * 14) + 1;
-    const postedDate = new Date();
-    postedDate.setDate(postedDate.getDate() - daysAgo);
-    
-    // Generate salary range
-    const baseSalary = Math.floor(Math.random() * 100) + 60;
-    const salaryRange = `$${baseSalary}k - $${baseSalary + 40}k`;
-    
-    // Generate application URL
-    const applicationUrl = `https://linkedin.com/jobs/view/${Math.floor(Math.random() * 1000000)}`;
-    
-    // Generate job description
-    const descriptionParts = [
-      `Join our team as a ${title} at ${company.name}!`,
-      `We're looking for a talented professional to help build and scale our products.`,
-      `You'll work closely with our engineering, design, and product teams to deliver exceptional experiences.`,
-      `In this role, you'll be responsible for designing, developing, and maintaining key features.`,
-      `The ideal candidate has experience with ${requiredSkills.slice(0, 3).join(", ")}.`
-    ];
-    
-    jobs.push({
+    // Create job object
+    const job = {
       id: crypto.randomUUID(),
-      title,
-      company: company.name,
-      location,
-      logo: company.logo,
-      salary: salaryRange,
-      description: descriptionParts.join(" "),
-      requirements: requiredSkills,
-      posted: daysAgo === 1 ? "1 day ago" : `${daysAgo} days ago`,
-      type: jobType,
-      applicationUrl,
-      isNew: daysAgo <= 3,
-      url: applicationUrl
-    });
+      title: randomJobType.title,
+      company: randomCompany.name,
+      location: randomLocation,
+      salary: randomSalary,
+      description: jobDesc,
+      requirements: randomJobType.requirements,
+      posted: randomTimePeriod,
+      type: randomEmploymentType,
+      logo: randomCompany.logo,
+      isNew: Math.random() > 0.7, // 30% chance of being marked as new
+      url: jobUrl,
+      applicationUrl: applicationUrl,
+      source: "linkedin",
+      sourceId: linkedInId
+    };
+    
+    // Apply filters if they exist
+    let matchesFilters = true;
+    
+    if (filters) {
+      // Filter by job title
+      if (filters.jobTitle && !job.title.toLowerCase().includes(filters.jobTitle.toLowerCase())) {
+        matchesFilters = false;
+      }
+      
+      // Filter by location
+      if (filters.location && !job.location.toLowerCase().includes(filters.location.toLowerCase())) {
+        matchesFilters = false;
+      }
+      
+      // Filter by company
+      if (filters.company && !job.company.toLowerCase().includes(filters.company.toLowerCase())) {
+        matchesFilters = false;
+      }
+      
+      // Filter by employment type
+      if (filters.employmentType && job.type !== filters.employmentType) {
+        matchesFilters = false;
+      }
+      
+      // Filter by skills/requirements
+      if (filters.skills && filters.skills.length > 0) {
+        const hasRequiredSkills = filters.skills.some((skill: string) => 
+          job.requirements.some(req => req.toLowerCase().includes(skill.toLowerCase()))
+        );
+        if (!hasRequiredSkills) {
+          matchesFilters = false;
+        }
+      }
+    }
+    
+    if (matchesFilters) {
+      filteredJobs.push(job);
+    }
   }
   
-  return jobs;
-};
+  return filteredJobs;
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -144,56 +142,77 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-    const { filters, lastJobId } = await req.json();
-
-    // Generate jobs based on filters
-    const jobs = generateJobs(filters);
+    const { filters = {}, count = 10, lastJobId, source = "generic" } = await req.json();
+    console.log(`Received job search request. Source: ${source}, Filters:`, filters);
     
-    // If this is a "load more" request and we have a lastJobId,
-    // we'd filter out the already seen jobs here
-    // (In a real implementation with a database, we would do proper pagination)
-    
-    // For demonstration purposes, we'll just save these jobs to the database
-    // so they can be referred to later when applying
-    try {
-      const { error } = await supabase
-        .from('jobs')
-        .upsert(jobs.map(job => ({
-          id: job.id,
-          title: job.title,
-          company: job.company,
-          location: job.location,
-          salary: job.salary,
-          description: job.description,
-          requirements: job.requirements,
-          posted: new Date(),
-          type: job.type,
-          logo: job.logo,
-          is_new: job.isNew
-        })));
-        
-      if (error) {
-        console.error('Error saving jobs to database:', error);
-      }
-    } catch (dbError) {
-      console.error('Error in database operation:', dbError);
+    // For LinkedIn jobs, use our mock generator
+    if (source === "linkedin") {
+      const jobs = generateLinkedInJobs(filters, count);
+      console.log(`Generated ${jobs.length} LinkedIn jobs`);
+      
+      return new Response(
+        JSON.stringify({ jobs }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-
-    return new Response(
-      JSON.stringify({ success: true, jobs }), 
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    
+    // For any other source, use the database
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+    
+    // Build the query
+    let query = supabase.from('jobs').select('*');
+    
+    // Apply filters
+    if (filters.jobTitle) {
+      query = query.ilike('title', `%${filters.jobTitle}%`);
+    }
+    
+    if (filters.location) {
+      query = query.ilike('location', `%${filters.location}%`);
+    }
+    
+    if (filters.company) {
+      query = query.ilike('company', `%${filters.company}%`);
+    }
+    
+    if (filters.employmentType) {
+      query = query.eq('type', filters.employmentType);
+    }
+    
+    // Pagination using lastJobId
+    if (lastJobId) {
+      const { data: lastJob } = await supabase
+        .from('jobs')
+        .select('created_at')
+        .eq('id', lastJobId)
+        .single();
+        
+      if (lastJob) {
+        query = query.lt('created_at', lastJob.created_at);
       }
+    }
+    
+    // Execute the query
+    const { data: jobs, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(count);
+      
+    if (error) {
+      throw error;
+    }
+    
+    console.log(`Retrieved ${jobs?.length || 0} database jobs`);
+    
+    return new Response(
+      JSON.stringify({ jobs: jobs || [] }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error in job-search function:', error);
     return new Response(
       JSON.stringify({ 
-        success: false, 
-        message: error.message || 'Failed to search jobs' 
-      }), 
+        error: error.message || 'Failed to retrieve jobs' 
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

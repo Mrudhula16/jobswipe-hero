@@ -22,14 +22,7 @@ serve(async (req) => {
     const { jobDetails, userId } = await req.json();
 
     console.log('Received application request for job:', jobDetails.title);
-    
-    // In a real-world implementation, this is where you would:
-    // 1. Parse the job application page
-    // 2. Fill out the application form
-    // 3. Submit the application
-    // 4. Parse the response to determine success
-    
-    // For this demo, we'll simulate the application process
+    console.log('Job source:', jobDetails.source || 'generic');
     
     // Record the job application attempt
     const { data: applicationData, error: applicationError } = await supabase
@@ -41,7 +34,7 @@ serve(async (req) => {
         job_url: jobDetails.applicationUrl || jobDetails.url,
         status: 'pending',
         auto_applied: true,
-        notes: `Auto-applied via AI Job Agent on ${new Date().toLocaleString()}`
+        notes: `Auto-applied via AI Job Agent on ${new Date().toLocaleString()} (Source: ${jobDetails.source || 'generic'})`
       })
       .select()
       .single();
@@ -51,17 +44,31 @@ serve(async (req) => {
       throw applicationError;
     }
 
-    // Simulate the application process
-    // In a real implementation, this is where you would use techniques like:
-    // - Headless browsers (Playwright/Puppeteer) for form filling
-    // - OAuth integrations with LinkedIn API
-    // - Resume parsing and matching
+    // Additional handling for LinkedIn jobs
+    let isSuccessful = false;
+    let applicationMessage = '';
     
-    console.log('Successfully recorded application, id:', applicationData.id);
+    if (jobDetails.source === 'linkedin') {
+      console.log('Processing LinkedIn job application');
+      
+      // LinkedIn-specific application logic would go here
+      // This is a placeholder for actual LinkedIn integration
+      // In a real implementation, this would use LinkedIn API or automated browser interactions
+      
+      // Simulate LinkedIn application process (80% success rate for demo)
+      isSuccessful = Math.random() < 0.8;
+      applicationMessage = isSuccessful 
+        ? `Successfully applied to ${jobDetails.title} at ${jobDetails.company} via LinkedIn`
+        : `Could not complete application to ${jobDetails.title} on LinkedIn. The job has been saved for manual application.`;
+    } else {
+      // Generic application process (same as before)
+      isSuccessful = Math.random() < 0.8;
+      applicationMessage = isSuccessful 
+        ? `Successfully applied to ${jobDetails.title} at ${jobDetails.company}`
+        : `Could not complete application to ${jobDetails.title}. The job has been saved for manual application.`;
+    }
     
-    // Simulate application success (80% success rate)
-    const isSuccessful = Math.random() < 0.8;
-    
+    // Update application status based on result
     if (isSuccessful) {
       // Update application status to applied
       const { error: updateError } = await supabase
@@ -72,17 +79,6 @@ serve(async (req) => {
       if (updateError) {
         console.error('Error updating application status:', updateError);
       }
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: `Successfully applied to ${jobDetails.title} at ${jobDetails.company}`,
-          applicationId: applicationData.id 
-        }), 
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
     } else {
       // Update application status to failed
       const { error: updateError } = await supabase
@@ -96,18 +92,18 @@ serve(async (req) => {
       if (updateError) {
         console.error('Error updating application failure:', updateError);
       }
-      
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: `Could not complete application to ${jobDetails.title}. The job has been saved for manual application.`,
-          applicationId: applicationData.id 
-        }), 
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
     }
+    
+    return new Response(
+      JSON.stringify({ 
+        success: isSuccessful, 
+        message: applicationMessage,
+        applicationId: applicationData.id 
+      }), 
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
   } catch (error) {
     console.error('Error in job-auto-apply function:', error);
     return new Response(
