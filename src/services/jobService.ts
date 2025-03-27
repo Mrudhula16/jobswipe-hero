@@ -75,12 +75,12 @@ export const getFilteredJobs = async (filters: any): Promise<Job[]> => {
 // Save job to user's saved jobs
 export const saveJob = async (jobId: string): Promise<boolean> => {
   try {
-    const { user } = await supabase.auth.getUser();
-    if (!user) throw new Error("User not authenticated");
+    const { data, error: userError } = await supabase.auth.getUser();
+    if (!data.user) throw new Error("User not authenticated");
     
     const { error } = await supabase
       .from('saved_jobs')
-      .insert([{ job_id: jobId, user_id: user.id }]);
+      .insert([{ job_id: jobId, user_id: data.user.id }]);
       
     if (error) throw error;
     return true;
@@ -93,8 +93,8 @@ export const saveJob = async (jobId: string): Promise<boolean> => {
 // Apply to a job
 export const applyToJob = async (jobId: string): Promise<boolean> => {
   try {
-    const { user } = await supabase.auth.getUser();
-    if (!user) throw new Error("User not authenticated");
+    const { data, error: userError } = await supabase.auth.getUser();
+    if (!data.user) throw new Error("User not authenticated");
     
     // In a real implementation, this would make an API call to the backend
     console.log(`Applying to job ${jobId}`);
