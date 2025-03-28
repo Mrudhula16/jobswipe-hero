@@ -1,138 +1,153 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Mail } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import OTPVerification from "@/components/OTPVerification";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
 const SignIn = () => {
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const { loginWithEmail, verifyOTP } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
-  const { loginWithEmail, verifyOTP, isLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState("signin");
-  
-  // Form states
-  const [email, setEmail] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    if (!email) {
+      toast({
+        title: "Email required",
+        description: "Please enter your email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       await loginWithEmail(email);
-      setOtpSent(true);
+      setShowOtpInput(true);
+      toast({
+        title: "Check your email",
+        description: "We've sent you a magic link or OTP code",
+      });
     } catch (error) {
-      console.error("Sign in error:", error);
-      // Error is handled by the useAuth hook
+      console.error("Error sending magic link:", error);
+      toast({
+        title: "Failed to send email",
+        description: "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  
-  const handleVerifyOTP = async (email: string, token: string) => {
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otp) {
+      toast({
+        title: "OTP required",
+        description: "Please enter the verification code sent to your email",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      await verifyOTP(email, token);
-      // Navigation is handled in the useAuth hook after successful verification
+      await verifyOTP(email, otp);
+      toast({
+        title: "Success!",
+        description: "You have been signed in",
+      });
+      navigate('/');
     } catch (error) {
-      console.error("OTP verification error:", error);
+      console.error("Error verifying OTP:", error);
+      toast({
+        title: "Invalid code",
+        description: "Please check the code and try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  
-  const handleResendOTP = async (email: string) => {
-    try {
-      await loginWithEmail(email);
-    } catch (error) {
-      console.error("Resend OTP error:", error);
-    }
-  };
-  
-  if (otpSent) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary/30 p-4">
-        <OTPVerification 
-          email={email}
-          onVerify={handleVerifyOTP}
-          onResend={handleResendOTP}
-          isLoading={isLoading}
-        />
-      </div>
-    );
-  }
-  
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary/30 p-4">
-      <Card className="w-full max-w-md shadow-lg neo-card">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">JobHub</CardTitle>
-          <CardDescription>
-            Sign in to access your job search dashboard
+    <div className="flex items-center justify-center min-h-screen bg-background p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center">Welcome to JobSwipe</CardTitle>
+          <CardDescription className="text-center">
+            {!showOtpInput 
+              ? "Sign in with your email to continue" 
+              : "Enter the verification code sent to your email"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="signin" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-1 mb-6">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="you@example.com" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending OTP...
-                    </>
-                  ) : (
-                    "Continue with Email"
-                  )}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-          
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">
-                Or continue with
-              </span>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 gap-3">
-            <Button variant="outline" className="h-10">
-              <Mail className="h-4 w-4 mr-2" />
-              Magic Email Link
-            </Button>
-          </div>
+          {!showOtpInput ? (
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="email" className="text-sm font-medium">Email</label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isSubmitting}
+                  required
+                />
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Sending..." : "Continue with Email"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOTP} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="otp" className="text-sm font-medium">Verification Code</label>
+                <Input
+                  id="otp"
+                  type="text"
+                  placeholder="Enter verification code"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  disabled={isSubmitting}
+                  required
+                />
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Verifying..." : "Verify Code"}
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setShowOtpInput(false)}
+                disabled={isSubmitting}
+              >
+                Back to Email
+              </Button>
+            </form>
+          )}
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <div className="text-xs text-center text-muted-foreground">
-            By continuing, you agree to our{" "}
-            <a href="#" className="underline underline-offset-2 hover:text-primary">
-              Terms of Service
-            </a>{" "}
-            and{" "}
-            <a href="#" className="underline underline-offset-2 hover:text-primary">
-              Privacy Policy
-            </a>
-            .
+        <CardFooter className="flex-col space-y-2">
+          <div className="text-center text-sm text-muted-foreground">
+            By continuing, you agree to our Terms of Service and Privacy Policy.
           </div>
         </CardFooter>
       </Card>
