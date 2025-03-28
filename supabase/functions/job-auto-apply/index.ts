@@ -51,15 +51,26 @@ serve(async (req) => {
     if (jobDetails.source === 'linkedin') {
       console.log('Processing LinkedIn job application');
       
-      // LinkedIn-specific application logic would go here
-      // This is a placeholder for actual LinkedIn integration
-      // In a real implementation, this would use LinkedIn API or automated browser interactions
+      // Call the LinkedIn jobs function to handle the application
+      const { data: linkedInResponse, error: linkedInError } = await supabase.functions.invoke('linkedin-jobs', {
+        body: { 
+          action: 'apply',
+          jobDetails,
+          userId
+        }
+      });
       
-      // Simulate LinkedIn application process (80% success rate for demo)
-      isSuccessful = Math.random() < 0.8;
-      applicationMessage = isSuccessful 
-        ? `Successfully applied to ${jobDetails.title} at ${jobDetails.company} via LinkedIn`
-        : `Could not complete application to ${jobDetails.title} on LinkedIn. The job has been saved for manual application.`;
+      if (linkedInError) {
+        console.error('Error with LinkedIn application:', linkedInError);
+        isSuccessful = false;
+        applicationMessage = `Could not complete application to ${jobDetails.title} on LinkedIn due to an error: ${linkedInError.message}`;
+      } else {
+        isSuccessful = linkedInResponse?.success || false;
+        applicationMessage = linkedInResponse?.message || 
+          (isSuccessful ? 
+            `Successfully applied to ${jobDetails.title} at ${jobDetails.company} via LinkedIn` :
+            `Could not complete application to ${jobDetails.title} on LinkedIn. The job has been saved for manual application.`);
+      }
     } else {
       // Generic application process (same as before)
       isSuccessful = Math.random() < 0.8;

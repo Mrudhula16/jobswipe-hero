@@ -1,7 +1,21 @@
 
 import { useState, useEffect } from 'react';
-import { FilterCategory, FilterOption, getJobFilterCategories, getFilterOptionsByCategory } from '@/services/jobService';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+
+export interface FilterOption {
+  id: string;
+  value: string;
+  label: string;
+  description?: string;
+}
+
+export interface FilterCategory {
+  id: string;
+  name: string;
+  description?: string;
+  options: FilterOption[];
+}
 
 interface UseJobFiltersReturn {
   filterCategories: FilterCategory[];
@@ -22,12 +36,46 @@ export const useJobFilters = (): UseJobFiltersReturn => {
     const loadFilterData = async () => {
       try {
         setIsLoading(true);
-        const categories = await getJobFilterCategories();
         
-        // Organize options by category name for easier lookup
+        // Fetch categories
+        const { data: categoriesData, error: categoriesError } = await supabase
+          .from('job_filter_categories')
+          .select('*')
+          .order('name');
+        
+        if (categoriesError) throw categoriesError;
+        
+        // Fetch options
+        const { data: optionsData, error: optionsError } = await supabase
+          .from('job_filter_options')
+          .select('*')
+          .order('label');
+        
+        if (optionsError) throw optionsError;
+        
+        // Transform the data into the format we need
+        const categories: FilterCategory[] = [];
         const optionsByCategory: Record<string, FilterOption[]> = {};
-        categories.forEach(category => {
-          optionsByCategory[category.name] = category.options;
+        
+        categoriesData?.forEach(category => {
+          const categoryOptions = optionsData?.filter(option => 
+            option.category_id === category.id
+          ) || [];
+          
+          const transformedCategory: FilterCategory = {
+            id: category.id,
+            name: category.name,
+            description: category.description,
+            options: categoryOptions.map(option => ({
+              id: option.id,
+              value: option.value,
+              label: option.label,
+              description: option.description
+            }))
+          };
+          
+          categories.push(transformedCategory);
+          optionsByCategory[category.name] = transformedCategory.options;
         });
         
         setFilterCategories(categories);

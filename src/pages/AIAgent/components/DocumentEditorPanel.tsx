@@ -6,6 +6,7 @@ import AnalysisTabs from "./AnalysisTabs";
 import JobFilters from "@/components/JobFilters";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
 
 interface DocumentEditorPanelProps {
@@ -29,6 +30,7 @@ const DocumentEditorPanel = ({
 }: DocumentEditorPanelProps) => {
   const [llmModel, setLlmModel] = useState("gpt4");
   const [filters, setFilters] = useState<Record<string, string[]>>({});
+  const [useLinkedIn, setUseLinkedIn] = useState(false);
 
   const handleFilterChange = (newFilters: Record<string, string[]>) => {
     console.log("Filters changed:", newFilters);
@@ -45,21 +47,32 @@ const DocumentEditorPanel = ({
               onApplyFilters={(formattedFilters) => console.log("Applying filters:", formattedFilters)} 
             />
             
-            <div className="flex items-center gap-3">
-              <Label htmlFor="llm-model" className="text-sm whitespace-nowrap">AI Model:</Label>
-              <Select value={llmModel} onValueChange={setLlmModel}>
-                <SelectTrigger id="llm-model" className="w-[180px]">
-                  <SelectValue placeholder="Select AI model" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="gpt4">GPT-4o</SelectItem>
-                  <SelectItem value="gpt3">GPT-3.5 Turbo</SelectItem>
-                  <SelectItem value="claude">Claude 3</SelectItem>
-                  <SelectItem value="llama3">Llama 3</SelectItem>
-                  <SelectItem value="grok">Grok</SelectItem>
-                  <SelectItem value="gemini">Gemini</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex items-center gap-3">
+                <Label htmlFor="use-linkedin" className="text-sm whitespace-nowrap">Use LinkedIn:</Label>
+                <Switch
+                  id="use-linkedin"
+                  checked={useLinkedIn}
+                  onCheckedChange={setUseLinkedIn}
+                />
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Label htmlFor="llm-model" className="text-sm whitespace-nowrap">AI Model:</Label>
+                <Select value={llmModel} onValueChange={setLlmModel}>
+                  <SelectTrigger id="llm-model" className="w-[180px]">
+                    <SelectValue placeholder="Select AI model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gpt4">GPT-4o</SelectItem>
+                    <SelectItem value="gpt3">GPT-3.5 Turbo</SelectItem>
+                    <SelectItem value="claude">Claude 3</SelectItem>
+                    <SelectItem value="llama3">Llama 3</SelectItem>
+                    <SelectItem value="grok">Grok</SelectItem>
+                    <SelectItem value="gemini">Gemini</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -89,6 +102,7 @@ const DocumentEditorPanel = ({
                 optimizing={optimizing}
                 onOptimize={onOptimize}
                 llmModel={llmModel}
+                useLinkedIn={useLinkedIn}
               />
             </TabsContent>
           </Tabs>
