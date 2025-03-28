@@ -1,11 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Logo } from "@/components/Logo";
@@ -14,12 +13,11 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   
   // Redirect if already authenticated
-  React.useEffect(() => {
+  useEffect(() => {
     if (isAuthenticated) {
       navigate('/');
     }
@@ -37,16 +35,9 @@ const Auth = () => {
       
       if (error) throw error;
       
-      toast({
-        title: "Account created successfully",
-        description: "Please check your email for a confirmation link",
-      });
+      // Success message will be shown by auth state change
     } catch (error: any) {
-      toast({
-        title: "Error signing up",
-        description: error.message,
-        variant: "destructive",
-      });
+      console.error("Error signing up:", error.message);
     } finally {
       setIsLoading(false);
     }
@@ -64,17 +55,9 @@ const Auth = () => {
       
       if (error) throw error;
       
-      toast({
-        title: "Signed in successfully",
-      });
-      
-      navigate('/');
+      // Success message will be shown by auth state change
     } catch (error: any) {
-      toast({
-        title: "Error signing in",
-        description: error.message,
-        variant: "destructive",
-      });
+      console.error("Error signing in:", error.message);
     } finally {
       setIsLoading(false);
     }

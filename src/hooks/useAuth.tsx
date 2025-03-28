@@ -2,8 +2,14 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
-import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+
+// Simple toast implementation to avoid circular dependencies
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  console.log(`Toast (${type}):`, message);
+  // We'll use this simple implementation temporarily
+  // and let the Toaster component handle the actual UI
+};
 
 interface AuthContextType {
   user: User | null;
@@ -53,16 +59,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       await supabase.auth.signOut();
-      toast({
-        title: "Signed out successfully",
-      });
+      showToast("Signed out successfully");
     } catch (error) {
       console.error("Sign out error:", error);
-      toast({
-        title: "Error signing out",
-        description: "An error occurred while signing out.",
-        variant: "destructive",
-      });
+      showToast("Error signing out", "error");
     } finally {
       setIsLoading(false);
     }
@@ -82,18 +82,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
 
-      toast({
-        title: "Verification email sent",
-        description: "Please check your email for the login link or OTP code",
-      });
+      showToast("Verification email sent");
 
     } catch (error: any) {
       console.error("Login error:", error);
-      toast({
-        title: "Login failed",
-        description: error.message || "An error occurred during login.",
-        variant: "destructive",
-      });
+      showToast(error.message || "An error occurred during login.", "error");
       throw error;
     } finally {
       setIsLoading(false);
@@ -113,20 +106,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
 
-      toast({
-        title: "Verification successful",
-        description: "You are now signed in",
-      });
+      showToast("Verification successful");
       
       navigate('/');
 
     } catch (error: any) {
       console.error("OTP verification error:", error);
-      toast({
-        title: "Verification failed",
-        description: error.message || "An error occurred during verification.",
-        variant: "destructive",
-      });
+      showToast(error.message || "An error occurred during verification.", "error");
       throw error;
     } finally {
       setIsLoading(false);

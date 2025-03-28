@@ -48,12 +48,10 @@ function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <>
-          <AuthProvider>
-            <AppRoutes />
-          </AuthProvider>
+        <AuthProvider>
+          <AppRoutes />
           <Toaster />
-        </>
+        </AuthProvider>
       </Router>
     </ErrorBoundary>
   );
