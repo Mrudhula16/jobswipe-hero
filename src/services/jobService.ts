@@ -1,7 +1,8 @@
+
 // Job service to fetch real job data and manage job interactions
 
 import { supabase } from "@/integrations/supabase/client";
-import { useJobFilters } from "@/hooks/useJobFilters";
+import { useJobFilters, FilterOption, FilterCategory } from "@/hooks/useJobFilters";
 
 // Job type definition for better type safety
 export interface Job {

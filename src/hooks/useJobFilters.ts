@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -31,13 +30,11 @@ export const useJobFilters = (): UseJobFiltersReturn => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Load filter categories and options on mount
   useEffect(() => {
     const loadFilterData = async () => {
       try {
         setIsLoading(true);
         
-        // Fetch categories
         const { data: categoriesData, error: categoriesError } = await supabase
           .from('job_filter_categories')
           .select('*')
@@ -45,7 +42,6 @@ export const useJobFilters = (): UseJobFiltersReturn => {
         
         if (categoriesError) throw categoriesError;
         
-        // Fetch options
         const { data: optionsData, error: optionsError } = await supabase
           .from('job_filter_options')
           .select('*')
@@ -53,7 +49,6 @@ export const useJobFilters = (): UseJobFiltersReturn => {
         
         if (optionsError) throw optionsError;
         
-        // Transform the data into the format we need
         const categories: FilterCategory[] = [];
         const optionsByCategory: Record<string, FilterOption[]> = {};
         
@@ -95,12 +90,10 @@ export const useJobFilters = (): UseJobFiltersReturn => {
     loadFilterData();
   }, [toast]);
 
-  // Get options for a specific category
   const getOptionsByCategory = (categoryName: string): FilterOption[] => {
     return filterOptions[categoryName] || [];
   };
 
-  // Get label for a given value in a category
   const getLabelByValue = (categoryName: string, value: string): string => {
     const options = filterOptions[categoryName] || [];
     const option = options.find(opt => opt.value === value);

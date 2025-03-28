@@ -1,4 +1,3 @@
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ interface AnalysisTabsProps {
   optimizing: boolean;
   onOptimize: () => void;
   llmModel: string;
+  useLinkedIn?: boolean;
 }
 
 const getAIModelName = (model: string) => {
@@ -26,7 +26,7 @@ const getAIModelName = (model: string) => {
   }
 };
 
-const AnalysisTabs = ({ activeDocType, setActiveDocType, matchScore, optimizing, onOptimize, llmModel }: AnalysisTabsProps) => {
+const AnalysisTabs = ({ activeDocType, setActiveDocType, matchScore, optimizing, onOptimize, llmModel, useLinkedIn = false }: AnalysisTabsProps) => {
   const getDocumentTitle = (docType: string) => {
     switch(docType) {
       case "resume": return "Resume";
@@ -72,6 +72,7 @@ const AnalysisTabs = ({ activeDocType, setActiveDocType, matchScore, optimizing,
                 <h3 className="text-lg font-medium">{getDocumentTitle(docType)} Analysis</h3>
                 <div className="text-xs bg-primary/10 text-primary rounded-full px-3 py-1 flex items-center gap-1">
                   Using {getAIModelName(llmModel)}
+                  {useLinkedIn && <span className="ml-1">• LinkedIn</span>}
                 </div>
               </div>
               <Button 
