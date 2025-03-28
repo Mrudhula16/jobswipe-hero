@@ -35,7 +35,8 @@ serve(async (req) => {
           query, 
           location,
           lastJobId,
-          count
+          count,
+          filters
         }
       });
       
