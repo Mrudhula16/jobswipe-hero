@@ -1,191 +1,203 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import JobCard from "@/components/JobCard";
-import JobCardSkeleton from "@/components/JobCardSkeleton";
-import JobCardActions from "@/components/JobCardActions";
-import { PanInfo, motion, useAnimationControls } from "framer-motion";
-import useJobSwiper from "@/hooks/useJobSwiper";
-import { BadgeInfo, Filter } from "lucide-react";
-import JobFilters from "@/components/JobFilters";
-import { useJobAgent } from "@/hooks/useJobAgent";
-import { JobAgentConfigDialog } from '@/components/JobAgentConfig';
+import JobCard from './JobCard';
+import JobCardSkeleton from './JobCardSkeleton';
+import JobCardActions from './JobCardActions';
+import JobFilters from './JobFilters';
+import { getJobs, Job } from '@/services/jobService';
+import { useToast } from '@/hooks/use-toast';
+import { useJobSwiper } from '@/hooks/useJobSwiper';
+import { useJobFilters } from '@/hooks/useJobFilters';
+import { AlertTriangle } from 'lucide-react';
+import { useJobAgent } from '@/hooks/useJobAgent';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const JobSwiper = () => {
-  const [showFilters, setShowFilters] = useState(false);
-  const { isActive, getSkillsMatchPercentage, shouldAutoApply } = useJobAgent();
-  const { 
-    jobs, 
-    currentIndex, 
-    isLoading, 
-    noMoreJobs, 
-    animatingCardId,
-    handleSwipe, 
-    handleUndo,
-    resetJobs,
-    applyFilters
-  } = useJobSwiper({
-    initialFetchCount: 5,
-    prefetchThreshold: 3
-  });
-  
-  // Store skills match and auto-apply status for each job
-  const [jobMatches, setJobMatches] = useState<{[key: string]: number}>({});
-  const [autoApplyJobs, setAutoApplyJobs] = useState<{[key: string]: boolean}>({});
-  
-  // Animation controls for the main card
-  const controls = useAnimationControls();
-  
-  // Handle manual swipe with animation
-  const handleDragEnd = (_: MouseEvent, info: PanInfo) => {
-    if (isLoading || jobs.length === 0 || currentIndex >= jobs.length) return;
-    
-    const threshold = 100;
-    const velocity = 0.5;
-    
-    // Determine swipe direction based on drag distance and velocity
-    if (info.offset.x > threshold && info.velocity.x > velocity) {
-      // Swipe right
-      controls.start({ 
-        x: "120%", 
-        opacity: 0,
-        transition: { duration: 0.2 } 
-      }).then(() => {
-        handleSwipe("right");
-        controls.set({ x: 0, opacity: 1 });
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { toast } = useToast();
+  const { history, addToHistory, undoLastSwipe, canUndo } = useJobSwiper();
+  const { filters, updateFilter, resetFilters } = useJobFilters();
+  const { getSkillsMatchPercentage, shouldAutoApply, applyToJob } = useJobAgent();
+  const [matchScore, setMatchScore] = useState<number | undefined>(undefined);
+  const [shouldAuto, setShouldAuto] = useState(false);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [filters]);
+
+  useEffect(() => {
+    if (jobs.length > 0 && currentIndex < jobs.length) {
+      calculateJobMatch(jobs[currentIndex]);
+    }
+  }, [currentIndex, jobs]);
+
+  const fetchJobs = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const jobsData = await getJobs(filters);
+      // Filter out jobs that are already in the history
+      const newJobs = jobsData.filter(job => 
+        !history.some(item => item.job.id === job.id)
+      );
+      
+      setJobs(newJobs);
+      setCurrentIndex(0);
+      
+      if (newJobs.length === 0) {
+        toast({
+          title: "No more jobs",
+          description: "We couldn't find any more jobs matching your filters. Try changing your filters or check back later.",
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching jobs:', err);
+      setError(err instanceof Error ? err : new Error('Failed to fetch jobs'));
+      toast({
+        title: "Error",
+        description: "Failed to load jobs. Please try again.",
+        variant: "destructive",
       });
-    } else if (info.offset.x < -threshold && info.velocity.x < -velocity) {
-      // Swipe left
-      controls.start({ 
-        x: "-120%", 
-        opacity: 0,
-        transition: { duration: 0.2 } 
-      }).then(() => {
-        handleSwipe("left");
-        controls.set({ x: 0, opacity: 1 });
-      });
-    } else {
-      // Reset position if swipe was not decisive
-      controls.start({ 
-        x: 0,
-        opacity: 1,
-        transition: { duration: 0.2 } 
-      });
+    } finally {
+      setIsLoading(false);
     }
   };
-  
-  // Calculate skills match and auto-apply status for visible jobs
-  useEffect(() => {
-    const calculateMatches = async () => {
-      if (jobs.length === 0 || !isActive) return;
+
+  const calculateJobMatch = async (job: Job) => {
+    try {
+      const score = await getSkillsMatchPercentage(job);
+      setMatchScore(score);
       
-      const visibleJobs = jobs.slice(currentIndex, currentIndex + 3);
-      
-      for (const job of visibleJobs) {
-        // Skip if we already calculated the match for this job
-        if (jobMatches[job.id] !== undefined) continue;
-        
-        try {
-          // Calculate skills match percentage
-          const matchScore = await getSkillsMatchPercentage(job);
-          setJobMatches(prev => ({...prev, [job.id]: matchScore}));
-          
-          // Determine if the job should be auto-applied
-          const autoApply = await shouldAutoApply(job);
-          setAutoApplyJobs(prev => ({...prev, [job.id]: autoApply}));
-        } catch (error) {
-          console.error(`Error calculating match for job ${job.id}:`, error);
-        }
+      const autoApply = await shouldAutoApply(job);
+      setShouldAuto(autoApply);
+    } catch (error) {
+      console.error('Error calculating job match:', error);
+      setMatchScore(undefined);
+      setShouldAuto(false);
+    }
+  };
+
+  const handleSwipe = async (direction: 'left' | 'right') => {
+    if (currentIndex >= jobs.length) return;
+    
+    const currentJob = jobs[currentIndex];
+    
+    // Apply to job if swiped right and auto-apply is enabled
+    if (direction === 'right') {
+      try {
+        await applyToJob(currentJob);
+      } catch (error) {
+        console.error('Error applying to job:', error);
       }
-    };
+    }
     
-    calculateMatches();
-  }, [jobs, currentIndex, isActive]);
-  
-  // Handle filter application
-  const handleApplyFilters = async (filters: Record<string, string[]>) => {
-    setShowFilters(false);
+    // Add to history
+    addToHistory({
+      job: currentJob,
+      direction,
+      timestamp: new Date(),
+    });
     
-    // Reset matches and auto-apply data when filters change
-    setJobMatches({});
-    setAutoApplyJobs({});
+    // Move to next job
+    setCurrentIndex(prevIndex => prevIndex + 1);
     
-    // Apply the new filters
-    await applyFilters(filters);
+    // Reset match score for next job
+    setMatchScore(undefined);
+    setShouldAuto(false);
+    
+    // If we've reached the end of the jobs, fetch more
+    if (currentIndex >= jobs.length - 1) {
+      toast({
+        title: "Loading more jobs",
+        description: "Please wait while we find more jobs for you.",
+      });
+      fetchJobs();
+    }
+  };
+
+  const handleUndo = () => {
+    if (canUndo) {
+      undoLastSwipe();
+      // Go back to the previous job
+      setCurrentIndex(prevIndex => Math.max(0, prevIndex - 1));
+    }
   };
 
   return (
-    <div className="flex flex-col w-full max-w-lg mx-auto h-full">
-      <div className="flex justify-between mb-4">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => setShowFilters(!showFilters)}
-          className="gap-2"
-        >
-          <Filter className="h-4 w-4" />
-          {showFilters ? "Hide Filters" : "Show Filters"}
-        </Button>
-        
-        <JobAgentConfigDialog />
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 md:p-6">
+      {/* Job Filters */}
+      <div className="w-full max-w-3xl mb-8">
+        <JobFilters 
+          filters={filters} 
+          updateFilter={updateFilter} 
+          resetFilters={resetFilters} 
+        />
       </div>
       
-      {showFilters && (
-        <Card className="mb-4">
-          <CardContent className="p-4">
-            <JobFilters onApplyFilters={handleApplyFilters} />
-          </CardContent>
-        </Card>
-      )}
-      
-      <div className="relative flex-1 w-full">
-        {isLoading ? (
-          <JobCardSkeleton />
-        ) : jobs.length === 0 || currentIndex >= jobs.length ? (
-          <div className="flex flex-col items-center justify-center h-full">
-            <Card className="w-full max-w-md p-8 text-center">
-              <CardContent className="flex flex-col items-center pt-6">
-                <BadgeInfo className="h-12 w-12 text-muted-foreground mb-4" />
-                <h2 className="text-xl font-bold mb-2">No More Jobs</h2>
-                <p className="text-muted-foreground mb-6">
-                  You've reviewed all available jobs matching your criteria.
-                </p>
-                <Button onClick={resetJobs}>Find More Jobs</Button>
-              </CardContent>
-            </Card>
-          </div>
-        ) : (
-          <div className="relative h-full">
-            {/* Current job card (animated) */}
+      {/* Main Card Area */}
+      <div className="w-full max-w-lg mx-auto mb-6 flex-grow flex flex-col items-center">
+        <AnimatePresence>
+          {isLoading ? (
+            <JobCardSkeleton />
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center text-center p-8 bg-red-50 border border-red-200 rounded-lg">
+              <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
+              <h3 className="text-lg font-medium text-red-800 mb-2">Failed to load jobs</h3>
+              <p className="text-red-700 mb-4">{error.message}</p>
+              <button 
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                onClick={fetchJobs}
+              >
+                Try Again
+              </button>
+            </div>
+          ) : jobs.length > 0 && currentIndex < jobs.length ? (
             <motion.div
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.7}
-              onDragEnd={handleDragEnd}
-              animate={controls}
-              className="absolute inset-0"
+              key={jobs[currentIndex].id}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, x: 300, scale: 0.8 }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
             >
               <JobCard 
                 job={jobs[currentIndex]} 
-                isLoading={false}
               />
             </motion.div>
-            
-            {/* Show card actions below the card */}
-            <div className="absolute bottom-0 left-0 right-0">
-              <JobCardActions 
-                job={jobs[currentIndex]}
-                onSwipe={handleSwipe}
-                onUndo={handleUndo}
-                canUndo={currentIndex > 0 || jobs.length > 1}
-                matchScore={jobMatches[jobs[currentIndex]?.id]}
-                shouldAutoApply={autoApplyJobs[jobs[currentIndex]?.id]}
-              />
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center p-8 bg-gray-50 border border-gray-200 rounded-lg">
+              <h3 className="text-lg font-medium text-gray-800 mb-2">No more jobs</h3>
+              <p className="text-gray-600 mb-4">We've run out of jobs matching your criteria.</p>
+              <button 
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+                onClick={() => {
+                  resetFilters();
+                  fetchJobs();
+                }}
+              >
+                Reset Filters & Find More Jobs
+              </button>
             </div>
-          </div>
-        )}
+          )}
+        </AnimatePresence>
       </div>
+      
+      {/* Job Actions */}
+      {!isLoading && !error && jobs.length > 0 && currentIndex < jobs.length && (
+        <div className="w-full max-w-lg">
+          <JobCardActions 
+            job={jobs[currentIndex]}
+            onSwipe={handleSwipe}
+            onUndo={handleUndo}
+            canUndo={canUndo}
+            matchScore={matchScore}
+            shouldAutoApply={shouldAuto}
+          />
+        </div>
+      )}
     </div>
   );
 };

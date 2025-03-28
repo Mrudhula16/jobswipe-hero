@@ -1,116 +1,111 @@
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Sparkles, Award, CheckCircle, TrendingUp, Calendar } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { Trophy, Sparkles, Calendar, TrendingUp } from "lucide-react";
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
-interface MotivationalInsight {
-  id: number;
-  title: string;
-  message: string;
-  icon: React.ReactNode;
+interface InsightsData {
+  appliedJobs: number;
+  savedJobs: number;
+  completedTasks: number;
+  streak: number;
 }
 
 const MotivationalInsights = () => {
   const { user } = useAuth();
-  const [activeInsight, setActiveInsight] = useState<number>(0);
-  const [weeklyGoal, setWeeklyGoal] = useState<number>(10);
-  const [weeklyProgress, setWeeklyProgress] = useState<number>(0);
+  const [insights, setInsights] = useState<InsightsData>({
+    appliedJobs: 0,
+    savedJobs: 0,
+    completedTasks: 0,
+    streak: 0
+  });
 
-  // This would normally come from actual data, but for demo purposes:
-  const applicationCount = user?.appliedJobs?.length || 0;
-  const savedJobsCount = user?.savedJobs?.length || 0;
-  
-  // Calculate a simulated weekly progress for demo
   useEffect(() => {
-    const simulatedWeeklyApps = Math.min(applicationCount, weeklyGoal);
-    setWeeklyProgress((simulatedWeeklyApps / weeklyGoal) * 100);
-  }, [applicationCount, weeklyGoal]);
-
-  // Rotate through motivational messages
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveInsight((prev) => (prev + 1) % motivationalInsights.length);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const motivationalInsights: MotivationalInsight[] = [
-    {
-      id: 1,
-      title: "Consistency Pays Off!",
-      message: "You've submitted applications consistently. Great job staying committed to your job search!",
-      icon: <TrendingUp className="h-6 w-6 text-primary" />
-    },
-    {
-      id: 2,
-      title: "You're Making Progress",
-      message: `${applicationCount > 0 ? `With ${applicationCount} job applications, you're increasing your chances of finding the perfect role.` : "Each application you submit increases your chances of finding the perfect role."}`,
-      icon: <CheckCircle className="h-6 w-6 text-green-500" />
-    },
-    {
-      id: 3,
-      title: "Building Momentum",
-      message: `${savedJobsCount > 0 ? `You've saved ${savedJobsCount} interesting positions. Having options is a great strategy!` : "Save jobs that interest you to build a collection of great opportunities."}`,
-      icon: <Award className="h-6 w-6 text-amber-500" />
-    },
-    {
-      id: 4,
-      title: "Weekly Progress",
-      message: `You're ${weeklyProgress >= 100 ? "exceeding" : "working toward"} your weekly application goal. Consistency is key to job search success!`,
-      icon: <Calendar className="h-6 w-6 text-blue-500" />
-    },
-    {
-      id: 5,
-      title: "Keep Going!",
-      message: "The average job search takes 3-6 months. Your persistence will pay off!",
-      icon: <Sparkles className="h-6 w-6 text-purple-500" />
+    if (user) {
+      fetchInsights();
     }
-  ];
+  }, [user]);
 
-  const currentInsight = motivationalInsights[activeInsight];
+  const fetchInsights = async () => {
+    try {
+      // Get applied jobs count
+      const { count: appliedCount, error: appliedError } = await supabase
+        .from('job_applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user?.id);
+        
+      // Get saved jobs count
+      const { count: savedCount, error: savedError } = await supabase
+        .from('saved_jobs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user?.id);
+        
+      // For demo purposes, we'll generate random numbers for tasks and streak
+      const completedTasks = Math.floor(Math.random() * 10);
+      const streak = Math.floor(Math.random() * 7);
+      
+      setInsights({
+        appliedJobs: appliedCount || 0,
+        savedJobs: savedCount || 0,
+        completedTasks,
+        streak
+      });
+    } catch (error) {
+      console.error('Error fetching insights:', error);
+    }
+  };
+
+  const getMotivationalMessage = () => {
+    if (insights.appliedJobs === 0) {
+      return "Apply to your first job to begin your journey!";
+    } else if (insights.appliedJobs < 5) {
+      return "Great start! Keep applying to find your perfect role.";
+    } else if (insights.appliedJobs < 10) {
+      return "You're making excellent progress. Keep the momentum going!";
+    } else {
+      return "Impressive effort! Your persistence will pay off soon.";
+    }
+  };
 
   return (
-    <Card className="neo-card relative overflow-hidden">
-      <CardHeader className="pb-2">
+    <Card className="w-full">
+      <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          Job Search Insights
+          <Sparkles className="h-5 w-5 text-amber-500" /> 
+          Your Progress
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentInsight.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-4"
-          >
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                {currentInsight.icon}
-              </div>
-              <div>
-                <h3 className="font-medium text-lg">{currentInsight.title}</h3>
-                <p className="text-muted-foreground">{currentInsight.message}</p>
-              </div>
-            </div>
-
-            {currentInsight.id === 4 && (
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-sm">
-                  <span>Weekly Application Goal</span>
-                  <span>{Math.min(applicationCount, weeklyGoal)} of {weeklyGoal}</span>
-                </div>
-                <Progress value={weeklyProgress} className="h-2" />
-              </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
+        <p className="text-sm text-muted-foreground mb-4">
+          {getMotivationalMessage()}
+        </p>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col items-center p-3 bg-primary/10 rounded-lg">
+            <TrendingUp className="h-8 w-8 text-primary mb-1" />
+            <span className="text-2xl font-bold">{insights.appliedJobs}</span>
+            <span className="text-xs text-muted-foreground">Applications</span>
+          </div>
+          
+          <div className="flex flex-col items-center p-3 bg-amber-100 rounded-lg">
+            <Trophy className="h-8 w-8 text-amber-500 mb-1" />
+            <span className="text-2xl font-bold">{insights.savedJobs}</span>
+            <span className="text-xs text-muted-foreground">Saved Jobs</span>
+          </div>
+          
+          <div className="flex flex-col items-center p-3 bg-green-100 rounded-lg">
+            <Calendar className="h-8 w-8 text-green-600 mb-1" />
+            <span className="text-2xl font-bold">{insights.streak}</span>
+            <span className="text-xs text-muted-foreground">Day Streak</span>
+          </div>
+          
+          <div className="flex flex-col items-center p-3 bg-blue-100 rounded-lg">
+            <Sparkles className="h-8 w-8 text-blue-600 mb-1" />
+            <span className="text-2xl font-bold">{insights.completedTasks}</span>
+            <span className="text-xs text-muted-foreground">Tasks Done</span>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

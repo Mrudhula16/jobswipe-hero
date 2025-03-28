@@ -1,0 +1,17 @@
+
+{
+  "name": "JobSwipe",
+  "short_name": "JobSwipe",
+  "description": "Find and apply to jobs with a simple swipe",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}

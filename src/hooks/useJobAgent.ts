@@ -79,21 +79,27 @@ export const useJobAgent = (): UseJobAgentReturn => {
       
       if (configData) {
         // Convert raw JSON data to proper typed objects
-        const autoApplyPreferences: AutoApplyPreferences = typeof configData.auto_apply_preferences === 'object' ? 
-          {
-            apply_on_swipe_right: Boolean(configData.auto_apply_preferences.apply_on_swipe_right),
-            skills_match_threshold: Number(configData.auto_apply_preferences.skills_match_threshold || 60),
-            location_preference: String(configData.auto_apply_preferences.location_preference || "remote"),
-            max_daily_applications: Number(configData.auto_apply_preferences.max_daily_applications || 10)
-          } : 
-          {
+        let autoApplyPreferences: AutoApplyPreferences;
+        
+        if (typeof configData.auto_apply_preferences === 'object') {
+          const prefs = configData.auto_apply_preferences as Record<string, any>;
+          autoApplyPreferences = {
+            apply_on_swipe_right: Boolean(prefs.apply_on_swipe_right ?? true),
+            skills_match_threshold: Number(prefs.skills_match_threshold ?? 60),
+            location_preference: String(prefs.location_preference ?? "remote"),
+            max_daily_applications: Number(prefs.max_daily_applications ?? 10)
+          };
+        } else {
+          autoApplyPreferences = {
             apply_on_swipe_right: true,
             skills_match_threshold: 60,
             location_preference: "remote",
             max_daily_applications: 10
           };
+        }
         
-        const mlParameters = typeof configData.ml_parameters === 'object' ? configData.ml_parameters : {};
+        const mlParameters = typeof configData.ml_parameters === 'object' ? 
+          configData.ml_parameters as Record<string, any> : {};
         
         const typedConfig: JobAgentConfig = {
           id: configData.id,

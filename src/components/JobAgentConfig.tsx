@@ -82,7 +82,7 @@ const JobAgentConfig = ({ onClose }: JobAgentConfigProps) => {
         }
         
         if (agentConfig.ml_parameters) {
-          const mlParams = agentConfig.ml_parameters;
+          const mlParams = agentConfig.ml_parameters as Record<string, any>;
           setEndpointUrl(mlParams.endpoint_url || "");
           setApiKey(mlParams.api_key || "");
           
@@ -106,7 +106,7 @@ const JobAgentConfig = ({ onClose }: JobAgentConfigProps) => {
           setSelectedResumeId(data.resume_id || "");
           
           if (data.auto_apply_preferences && typeof data.auto_apply_preferences === 'object') {
-            const prefs = data.auto_apply_preferences;
+            const prefs = data.auto_apply_preferences as Record<string, any>;
             setApplyOnSwipeRight(Boolean(prefs.apply_on_swipe_right ?? true));
             setSkillsMatchThreshold(Number(prefs.skills_match_threshold ?? 60));
             setLocationPreference(String(prefs.location_preference ?? "remote"));
@@ -114,12 +114,14 @@ const JobAgentConfig = ({ onClose }: JobAgentConfigProps) => {
           }
           
           if (data.ml_parameters && typeof data.ml_parameters === 'object') {
-            setEndpointUrl(String(data.ml_parameters.endpoint_url ?? ""));
-            setApiKey(String(data.ml_parameters.api_key ?? ""));
+            const mlParams = data.ml_parameters as Record<string, any>;
+            setEndpointUrl(String(mlParams.endpoint_url ?? ""));
+            setApiKey(String(mlParams.api_key ?? ""));
             
-            if (data.ml_parameters.preferences && typeof data.ml_parameters.preferences === 'object') {
-              setEnableRealTime(Boolean(data.ml_parameters.preferences.enable_real_time ?? true));
-              setEnableActions(Boolean(data.ml_parameters.preferences.enable_auto_actions ?? true));
+            if (mlParams.preferences && typeof mlParams.preferences === 'object') {
+              const prefs = mlParams.preferences as Record<string, any>;
+              setEnableRealTime(Boolean(prefs.enable_real_time ?? true));
+              setEnableActions(Boolean(prefs.enable_auto_actions ?? true));
             }
           }
         }
@@ -157,7 +159,7 @@ const JobAgentConfig = ({ onClose }: JobAgentConfigProps) => {
         .upsert({
           user_id: user?.id,
           resume_id: selectedResumeId,
-          auto_apply_preferences: autoApplyPrefs
+          auto_apply_preferences: autoApplyPrefs as any // Cast to any to fix type error
         });
       
       if (error) throw error;
