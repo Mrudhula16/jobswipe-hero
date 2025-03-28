@@ -5,6 +5,12 @@ import { Job, getJobs, getMoreJobs, getFilteredJobs } from '@/services/jobServic
 import { useJobAgent } from '@/hooks/useJobAgent';
 import { useAuth } from '@/hooks/useAuth';
 
+export interface JobHistoryItem {
+  job: Job;
+  direction: "left" | "right";
+  timestamp: Date;
+}
+
 interface UseJobSwiperProps {
   initialFetchCount?: number;
   prefetchThreshold?: number;
@@ -24,6 +30,10 @@ interface UseJobSwiperReturn {
   handleUndo: () => void;
   resetJobs: () => void;
   applyFilters: (filters: Record<string, any>) => Promise<void>;
+  history: JobHistoryItem[];
+  addToHistory: (item: JobHistoryItem) => void;
+  undoLastSwipe: () => void;
+  canUndo: boolean;
 }
 
 const useJobSwiper = ({
@@ -35,6 +45,7 @@ const useJobSwiper = ({
   const [jobs, setJobs] = useState<Job[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [swipedJobs, setSwipedJobs] = useState<{ id: string; direction: "left" | "right" }[]>([]);
+  const [history, setHistory] = useState<JobHistoryItem[]>([]);
   const swipeHistoryRef = useRef<{ id: string; direction: "left" | "right" }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -118,6 +129,15 @@ const useJobSwiper = ({
     fetchMoreJobs();
   }, [currentIndex, isLoadingMore, jobs, prefetchThreshold, onJobsChange]);
 
+  // History management
+  const addToHistory = (item: JobHistoryItem) => {
+    setHistory(prev => [...prev, item]);
+  };
+
+  const undoLastSwipe = () => {
+    setHistory(prev => prev.slice(0, -1));
+  };
+
   // Handle job swiping
   const handleSwipe = async (direction: "left" | "right") => {
     if (animatingCardId || jobs.length === 0) return;
@@ -156,6 +176,13 @@ const useJobSwiper = ({
       }
     }
     
+    // Add to history
+    addToHistory({
+      job: jobs[currentIndex],
+      direction,
+      timestamp: new Date()
+    });
+    
     // Wait for animation to complete before changing index
     setTimeout(() => {
       setCurrentIndex(prevIndex => {
@@ -178,6 +205,9 @@ const useJobSwiper = ({
     // Pop the last action from history
     swipeHistoryRef.current.pop();
     setSwipedJobs(swipeHistoryRef.current);
+    
+    // Also undo from main history
+    undoLastSwipe();
     
     // Decrement current index to go back to previous card
     setCurrentIndex(prevIndex => prevIndex - 1);
@@ -268,7 +298,11 @@ const useJobSwiper = ({
     handleSwipe,
     handleUndo,
     resetJobs,
-    applyFilters
+    applyFilters,
+    history,
+    addToHistory,
+    undoLastSwipe,
+    canUndo: history.length > 0
   };
 };
 

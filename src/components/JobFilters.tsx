@@ -18,11 +18,11 @@ import {
 } from "@/components/ui/command";
 import { useJobFilters } from "@/hooks/useJobFilters";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FilterOption } from "@/services/jobService";
+import { FilterOption } from "@/hooks/useJobFilters";
 
 interface JobFiltersProps {
   onFilterChange?: (filters: Record<string, string[]>) => void;
-  onApplyFilters?: (filters: Record<string, any>) => void;
+  onApplyFilters?: (filters?: Record<string, any>) => void;
   isFiltering?: boolean;
 }
 

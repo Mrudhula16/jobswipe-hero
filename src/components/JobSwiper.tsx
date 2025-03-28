@@ -6,7 +6,7 @@ import JobCardActions from './JobCardActions';
 import JobFilters from './JobFilters';
 import { getJobs, Job } from '@/services/jobService';
 import { useToast } from '@/hooks/use-toast';
-import { useJobSwiper } from '@/hooks/useJobSwiper';
+import useJobSwiper from '@/hooks/useJobSwiper';
 import { useJobFilters } from '@/hooks/useJobFilters';
 import { AlertTriangle } from 'lucide-react';
 import { useJobAgent } from '@/hooks/useJobAgent';
@@ -19,14 +19,15 @@ const JobSwiper = () => {
   const [error, setError] = useState<Error | null>(null);
   const { toast } = useToast();
   const { history, addToHistory, undoLastSwipe, canUndo } = useJobSwiper();
-  const { filters, updateFilter, resetFilters } = useJobFilters();
+  const { getOptionsByCategory, getLabelByValue, filterCategories, filterOptions } = useJobFilters();
   const { getSkillsMatchPercentage, shouldAutoApply, applyToJob } = useJobAgent();
   const [matchScore, setMatchScore] = useState<number | undefined>(undefined);
   const [shouldAuto, setShouldAuto] = useState(false);
+  const [filtersState, setFiltersState] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     fetchJobs();
-  }, [filters]);
+  }, [filtersState]);
 
   useEffect(() => {
     if (jobs.length > 0 && currentIndex < jobs.length) {
@@ -38,7 +39,7 @@ const JobSwiper = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const jobsData = await getJobs(filters);
+      const jobsData = await getJobs(filtersState);
       // Filter out jobs that are already in the history
       const newJobs = jobsData.filter(job => 
         !history.some(item => item.job.id === job.id)
@@ -126,14 +127,22 @@ const JobSwiper = () => {
     }
   };
 
+  const updateFilter = (filters: Record<string, string[]>) => {
+    setFiltersState(filters);
+  };
+
+  const resetFilters = () => {
+    setFiltersState({});
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 md:p-6">
       {/* Job Filters */}
       <div className="w-full max-w-3xl mb-8">
         <JobFilters 
-          filters={filters} 
-          updateFilter={updateFilter} 
-          resetFilters={resetFilters} 
+          onFilterChange={updateFilter}
+          onApplyFilters={() => fetchJobs()}
+          isFiltering={isLoading}
         />
       </div>
       
@@ -164,7 +173,9 @@ const JobSwiper = () => {
               className="w-full"
             >
               <JobCard 
-                job={jobs[currentIndex]} 
+                job={jobs[currentIndex]}
+                onSwipe={handleSwipe}
+                active={true}
               />
             </motion.div>
           ) : (
