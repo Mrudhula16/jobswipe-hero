@@ -82,30 +82,44 @@ export type Database = {
       }
       job_agent_configs: {
         Row: {
+          auto_apply_preferences: Json | null
           created_at: string
           id: string
           is_active: boolean | null
           ml_parameters: Json | null
+          resume_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          auto_apply_preferences?: Json | null
           created_at?: string
           id?: string
           is_active?: boolean | null
           ml_parameters?: Json | null
+          resume_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          auto_apply_preferences?: Json | null
           created_at?: string
           id?: string
           is_active?: boolean | null
           ml_parameters?: Json | null
+          resume_id?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "job_agent_configs_resume_id_fkey"
+            columns: ["resume_id"]
+            isOneToOne: false
+            referencedRelation: "resumes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_applications: {
         Row: {
@@ -315,6 +329,36 @@ export type Database = {
         }
         Relationships: []
       }
+      linkedin_credentials: {
+        Row: {
+          access_token: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          refresh_token: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ml_model_configs: {
         Row: {
           created_at: string
@@ -377,6 +421,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          skills: Json | null
           title: string
           updated_at: string
           user_id: string
@@ -386,6 +431,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          skills?: Json | null
           title: string
           updated_at?: string
           user_id: string
@@ -395,6 +441,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          skills?: Json | null
           title?: string
           updated_at?: string
           user_id?: string

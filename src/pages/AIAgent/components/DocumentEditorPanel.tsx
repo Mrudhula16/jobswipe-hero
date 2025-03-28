@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
+import ResumeUpload from "@/components/ResumeUpload";
 
 interface DocumentEditorPanelProps {
   activeTab: string;
@@ -81,8 +82,9 @@ const DocumentEditorPanel = ({
       <Card className="neo-card">
         <CardHeader className="pb-2">
           <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-2">
+            <TabsList className="grid grid-cols-3">
               <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="resumes">Resumes</TabsTrigger>
               <TabsTrigger value="analysis">Analysis</TabsTrigger>
             </TabsList>
           
@@ -92,6 +94,10 @@ const DocumentEditorPanel = ({
                 activeDocType={activeDocType} 
                 setActiveDocType={setActiveDocType} 
               />
+            </TabsContent>
+            
+            <TabsContent value="resumes" className="mt-0">
+              <ResumeUpload />
             </TabsContent>
             
             <TabsContent value="analysis" className="mt-0">
