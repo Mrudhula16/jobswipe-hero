@@ -1,4 +1,3 @@
-
 // Job service to fetch real job data and manage job interactions
 
 import { supabase } from "@/integrations/supabase/client";
@@ -29,9 +28,16 @@ export type { FilterOption, FilterCategory } from "@/hooks/useJobFilters";
 // Simulate network delays for more realistic API behavior
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Get initial batch of jobs
-export const getJobs = async (count: number = 5): Promise<Job[]> => {
+// Updated to handle both filter objects and number counts
+export const getJobs = async (countOrFilters: number | Record<string, any> = 5): Promise<Job[]> => {
   try {
+    // If filters provided (object), use them
+    if (typeof countOrFilters !== 'number') {
+      return getFilteredJobs(countOrFilters);
+    }
+    
+    // Otherwise treat as count
+    const count = countOrFilters;
     const { data, error } = await supabase.functions.invoke('linkedin-jobs', {
       body: { action: 'search', count, source: "linkedin" }
     });

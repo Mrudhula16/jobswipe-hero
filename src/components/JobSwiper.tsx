@@ -39,7 +39,11 @@ const JobSwiper = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const jobsData = await getJobs(filtersState);
+      // Modified to correctly call getJobs with either filters or a number
+      const jobsData = Object.keys(filtersState).length > 0 
+        ? await getJobs(filtersState) 
+        : await getJobs(5); // Default to 5 jobs if no filters
+      
       // Filter out jobs that are already in the history
       const newJobs = jobsData.filter(job => 
         !history.some(item => item.job.id === job.id)
