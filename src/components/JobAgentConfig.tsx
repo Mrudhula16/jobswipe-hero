@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useJobAgent } from "@/hooks/useJobAgent";
+import { useJobAgent, AutoApplyPreferences } from "@/hooks/useJobAgent";
 import { Settings, Server, Database, File, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
@@ -23,7 +23,7 @@ interface Resume {
 }
 
 const JobAgentConfig = ({ onClose }: JobAgentConfigProps) => {
-  const { isActive, isLoading, toggleJobAgent, setMLParameters } = useJobAgent();
+  const { isActive, isLoading, toggleJobAgent, setMLParameters, agentConfig } = useJobAgent();
   const { toast } = useToast();
   const { user } = useAuth();
   const [endpointUrl, setEndpointUrl] = useState("");
@@ -43,7 +43,7 @@ const JobAgentConfig = ({ onClose }: JobAgentConfigProps) => {
       fetchResumes();
       fetchCurrentConfig();
     }
-  }, [user]);
+  }, [user, agentConfig]);
 
   const fetchResumes = async () => {
     try {
@@ -69,31 +69,59 @@ const JobAgentConfig = ({ onClose }: JobAgentConfigProps) => {
 
   const fetchCurrentConfig = async () => {
     try {
-      const { data, error } = await supabase
-        .from('job_agent_configs')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
-
-      if (data) {
-        // Set form values from saved configuration
-        setSelectedResumeId(data.resume_id || "");
+      // Use the config from the hook if available
+      if (agentConfig) {
+        setSelectedResumeId(agentConfig.resume_id || "");
         
-        if (data.auto_apply_preferences) {
-          const prefs = data.auto_apply_preferences;
-          setApplyOnSwipeRight(prefs.apply_on_swipe_right || true);
-          setSkillsMatchThreshold(prefs.skills_match_threshold || 60);
-          setLocationPreference(prefs.location_preference || "remote");
-          setMaxDailyApplications(prefs.max_daily_applications || 10);
+        if (agentConfig.auto_apply_preferences) {
+          const prefs = agentConfig.auto_apply_preferences;
+          setApplyOnSwipeRight(prefs.apply_on_swipe_right);
+          setSkillsMatchThreshold(prefs.skills_match_threshold);
+          setLocationPreference(prefs.location_preference);
+          setMaxDailyApplications(prefs.max_daily_applications);
         }
         
-        if (data.ml_parameters) {
-          setEndpointUrl(data.ml_parameters.endpoint_url || "");
-          setApiKey(data.ml_parameters.api_key || "");
-          setEnableRealTime(data.ml_parameters.preferences?.enable_real_time !== false);
-          setEnableActions(data.ml_parameters.preferences?.enable_auto_actions !== false);
+        if (agentConfig.ml_parameters) {
+          const mlParams = agentConfig.ml_parameters;
+          setEndpointUrl(mlParams.endpoint_url || "");
+          setApiKey(mlParams.api_key || "");
+          
+          if (mlParams.preferences) {
+            setEnableRealTime(mlParams.preferences.enable_real_time !== false);
+            setEnableActions(mlParams.preferences.enable_auto_actions !== false);
+          }
+        }
+      } else {
+        // Fetch directly from Supabase if hook data is not available
+        const { data, error } = await supabase
+          .from('job_agent_configs')
+          .select('*')
+          .eq('user_id', user?.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
+
+        if (data) {
+          // Set form values from saved configuration
+          setSelectedResumeId(data.resume_id || "");
+          
+          if (data.auto_apply_preferences && typeof data.auto_apply_preferences === 'object') {
+            const prefs = data.auto_apply_preferences;
+            setApplyOnSwipeRight(Boolean(prefs.apply_on_swipe_right ?? true));
+            setSkillsMatchThreshold(Number(prefs.skills_match_threshold ?? 60));
+            setLocationPreference(String(prefs.location_preference ?? "remote"));
+            setMaxDailyApplications(Number(prefs.max_daily_applications ?? 10));
+          }
+          
+          if (data.ml_parameters && typeof data.ml_parameters === 'object') {
+            setEndpointUrl(String(data.ml_parameters.endpoint_url ?? ""));
+            setApiKey(String(data.ml_parameters.api_key ?? ""));
+            
+            if (data.ml_parameters.preferences && typeof data.ml_parameters.preferences === 'object') {
+              setEnableRealTime(Boolean(data.ml_parameters.preferences.enable_real_time ?? true));
+              setEnableActions(Boolean(data.ml_parameters.preferences.enable_auto_actions ?? true));
+            }
+          }
         }
       }
     } catch (error) {
@@ -117,17 +145,19 @@ const JobAgentConfig = ({ onClose }: JobAgentConfigProps) => {
       });
       
       // Then update the agent config with resume and preferences
+      const autoApplyPrefs: AutoApplyPreferences = {
+        apply_on_swipe_right: applyOnSwipeRight,
+        skills_match_threshold: skillsMatchThreshold,
+        location_preference: locationPreference,
+        max_daily_applications: maxDailyApplications
+      };
+      
       const { error } = await supabase
         .from('job_agent_configs')
         .upsert({
           user_id: user?.id,
           resume_id: selectedResumeId,
-          auto_apply_preferences: {
-            apply_on_swipe_right: applyOnSwipeRight,
-            skills_match_threshold: skillsMatchThreshold,
-            location_preference: locationPreference,
-            max_daily_applications: maxDailyApplications
-          }
+          auto_apply_preferences: autoApplyPrefs
         });
       
       if (error) throw error;
