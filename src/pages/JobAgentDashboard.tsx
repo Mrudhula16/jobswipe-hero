@@ -1,305 +1,649 @@
 
 import React, { useState, useEffect } from 'react';
-import Navbar from "@/components/Navbar";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { JobAgentConfigDialog } from "@/components/JobAgentConfig";
-import { useJobAgent } from "@/hooks/useJobAgent";
-import { useAuth } from "@/hooks/useAuth";
-import { Robot, RefreshCw, CheckCircle, XCircle, Clock, ChevronRight, Activity, Settings, Upload } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
-import ResumeUpload from "@/components/ResumeUpload";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import Navbar from '@/components/Navbar';
+import { JobAgentConfigDialog } from '@/components/JobAgentConfig';
+import { useJobAgent } from '@/hooks/useJobAgent';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { 
+  BarChart, 
+  Briefcase, 
+  BookmarkCheck, 
+  FileText, 
+  ChevronRight, 
+  AlertCircle,
+  Upload,
+  Trash2,
+  Plus
+} from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+interface JobApplication {
+  id: string;
+  company: string;
+  job_title: string;
+  status: string;
+  created_at: string;
+  auto_applied: boolean;
+  job_url?: string;
+}
+
+interface SavedJob {
+  id: string;
+  job_id: string;
+  created_at: string;
+  job?: {
+    company: string;
+    title: string;
+    location: string;
+  };
+}
+
+interface Resume {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  version: number;
+}
 
 const JobAgentDashboard = () => {
-  const { isActive, isLoading, applications, agentConfig, toggleJobAgent } = useJobAgent();
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("overview");
+  const { toast } = useToast();
+  const { isActive, agentConfig } = useJobAgent();
+  
+  const [activeTab, setActiveTab] = useState('applications');
+  const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
+  const [resumes, setResumes] = useState<Resume[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
-    appliedCount: 0,
-    pendingCount: 0,
-    failedCount: 0,
-    totalCount: 0,
-    successRate: 0,
+    totalApplications: 0,
+    interviews: 0,
+    offers: 0,
+    rejections: 0,
+    autoApplied: 0
   });
 
   useEffect(() => {
-    // Calculate statistics from applications
-    if (applications.length > 0) {
-      const appliedCount = applications.filter(app => app.status === 'applied').length;
-      const pendingCount = applications.filter(app => app.status === 'pending').length;
-      const failedCount = applications.filter(app => app.status === 'failed').length;
-      const totalCount = applications.length;
-      const successRate = Math.round((appliedCount / totalCount) * 100);
-      
-      setStats({
-        appliedCount,
-        pendingCount,
-        failedCount,
-        totalCount,
-        successRate,
+    if (user) {
+      fetchApplications();
+      fetchSavedJobs();
+      fetchResumes();
+      calculateStats();
+    }
+  }, [user]);
+
+  const fetchApplications = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setApplications(data || []);
+    } catch (error) {
+      console.error('Error fetching job applications:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load your job applications.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchSavedJobs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('saved_jobs')
+        .select(`
+          *,
+          job:jobs(company, title, location)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSavedJobs(data || []);
+    } catch (error) {
+      console.error('Error fetching saved jobs:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load your saved jobs.',
+        variant: 'destructive',
       });
     }
-  }, [applications]);
+  };
 
-  // Format date for display
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
+  const fetchResumes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('resumes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setResumes(data || []);
+    } catch (error) {
+      console.error('Error fetching resumes:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load your resumes.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const calculateStats = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select('status, auto_applied');
+
+      if (error) throw error;
+
+      const applications = data || [];
+      const stats = {
+        totalApplications: applications.length,
+        interviews: applications.filter(app => app.status === 'interview').length,
+        offers: applications.filter(app => app.status === 'offer').length,
+        rejections: applications.filter(app => app.status === 'rejected').length,
+        autoApplied: applications.filter(app => app.auto_applied).length
+      };
+
+      setStats(stats);
+    } catch (error) {
+      console.error('Error calculating stats:', error);
+    }
+  };
+
+  const deleteApplication = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('job_applications')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setApplications(applications.filter(app => app.id !== id));
+      toast({
+        title: 'Application deleted',
+        description: 'The job application has been removed from your list.',
+      });
+      calculateStats();
+    } catch (error) {
+      console.error('Error deleting application:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete the application.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const deleteSavedJob = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('saved_jobs')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setSavedJobs(savedJobs.filter(job => job.id !== id));
+      toast({
+        title: 'Job removed',
+        description: 'The job has been removed from your saved list.',
+      });
+    } catch (error) {
+      console.error('Error removing saved job:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to remove the saved job.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const deleteResume = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('resumes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setResumes(resumes.filter(resume => resume.id !== id));
+      toast({
+        title: 'Resume deleted',
+        description: 'The resume has been removed.',
+      });
+    } catch (error) {
+      console.error('Error deleting resume:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete the resume.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const updateApplicationStatus = async (id: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('job_applications')
+        .update({ status })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setApplications(applications.map(app => 
+        app.id === id ? { ...app, status } : app
+      ));
+      
+      toast({
+        title: 'Status updated',
+        description: `Application status changed to ${status}.`,
+      });
+      
+      calculateStats();
+    } catch (error) {
+      console.error('Error updating application status:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update the application status.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'applied':
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">Applied</Badge>;
+      case 'interview':
+        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300">Interview</Badge>;
+      case 'offer':
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">Offer</Badge>;
+      case 'rejected':
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">Rejected</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      <main className="container py-8 max-w-6xl">
-        <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">AI Job Agent</h1>
-            <p className="text-muted-foreground">Your personal assistant for job applications</p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <span className="text-sm">Agent Status:</span>
+      <main className="container py-8">
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold">My Jobs Dashboard</h1>
             <div className="flex items-center gap-2">
-              <Switch
-                checked={isActive}
-                onCheckedChange={toggleJobAgent}
-                disabled={isLoading}
-              />
-              <Label className="font-medium">
-                {isActive ? (
-                  <span className="text-green-600">Active</span>
-                ) : (
-                  <span className="text-muted-foreground">Inactive</span>
-                )}
-              </Label>
+              <JobAgentConfigDialog />
+              <Button onClick={() => navigate('/ai-assistant')}>
+                Resume Builder
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
             </div>
-            
-            <JobAgentConfigDialog />
           </div>
-        </div>
-        
-        <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="applications">Applications</TabsTrigger>
-            <TabsTrigger value="resumes">Resumes</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
           
-          <TabsContent value="overview">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Applications</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{stats.totalCount}</div>
-                  <p className="text-muted-foreground text-sm">Total applications</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Success Rate</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{stats.successRate}%</div>
-                  <Progress value={stats.successRate} className="h-2 mt-2" />
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Agent Status</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center">
-                    {isActive ? (
-                      <>
-                        <Robot className="w-5 h-5 text-green-500 mr-2" />
-                        <span className="text-green-600 font-medium">Active</span>
-                      </>
-                    ) : (
-                      <>
-                        <Robot className="w-5 h-5 text-muted-foreground mr-2" />
-                        <span className="text-muted-foreground font-medium">Inactive</span>
-                      </>
-                    )}
-                  </div>
-                  
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    {isActive 
-                      ? "Your AI agent is actively searching for matching jobs" 
-                      : "Activate your AI agent to start automatic job applications"}
-                  </div>
-                  
-                  {!agentConfig?.resume_id && (
-                    <div className="mt-2 text-sm text-amber-600">
-                      Please select a resume in settings before activating
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+          {/* Agent Status */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Job Agent Status</CardTitle>
+              <CardDescription>
+                Your AI-powered job agent helps you find and apply to matching jobs automatically
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className={`h-3 w-3 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                  <span className="font-medium">{isActive ? 'Active' : 'Inactive'}</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {isActive 
+                    ? `Using resume: ${agentConfig?.resume_id ? (resumes.find(r => r.id === agentConfig.resume_id)?.title || 'Unknown') : 'None selected'}` 
+                    : 'Configure your job agent to start receiving personalized job matches'}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Applications</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalApplications}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Interviews</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.interviews}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Offers</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.offers}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Auto-Applied</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.autoApplied}</div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Content Tabs */}
+          <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="applications" className="flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                <span>Applications</span>
+              </TabsTrigger>
+              <TabsTrigger value="saved" className="flex items-center gap-2">
+                <BookmarkCheck className="h-4 w-4" />
+                <span>Saved Jobs</span>
+              </TabsTrigger>
+              <TabsTrigger value="resumes" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                <span>Resumes</span>
+              </TabsTrigger>
+            </TabsList>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="md:col-span-2">
+            {/* Applications Tab */}
+            <TabsContent value="applications">
+              <Card>
                 <CardHeader>
-                  <CardTitle>Recent Applications</CardTitle>
-                  <CardDescription>Your most recent job applications</CardDescription>
+                  <CardTitle>Job Applications</CardTitle>
+                  <CardDescription>Manage your job applications and track their status</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {applications.length === 0 ? (
-                    <div className="text-center py-6">
-                      <p className="text-muted-foreground">No applications yet</p>
-                    </div>
-                  ) : (
+                  {isLoading ? (
                     <div className="space-y-4">
-                      {applications.slice(0, 5).map((app) => (
-                        <div key={app.id} className="flex items-center justify-between border-b pb-4 last:border-0">
-                          <div className="flex-1">
-                            <div className="font-medium">{app.job_title}</div>
-                            <div className="text-sm text-muted-foreground">{app.company}</div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {formatDate(app.created_at)}
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center">
-                            <Badge 
-                              variant="outline" 
-                              className={`mr-2 ${
-                                app.status === 'applied' ? 'bg-green-100 text-green-800 border-green-200' : 
-                                app.status === 'pending' ? 'bg-blue-100 text-blue-800 border-blue-200' : 
-                                'bg-red-100 text-red-800 border-red-200'
-                              }`}
-                            >
-                              {app.status === 'applied' ? (
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                              ) : app.status === 'pending' ? (
-                                <Clock className="w-3 h-3 mr-1" />
-                              ) : (
-                                <XCircle className="w-3 h-3 mr-1" />
-                              )}
-                              {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-                            </Badge>
-                            
-                            {app.auto_applied && (
-                              <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-                                <Robot className="w-3 h-3 mr-1" />
-                                Auto
-                              </Badge>
-                            )}
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className="flex items-center space-x-4">
+                          <Skeleton className="h-12 w-12 rounded-full" />
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-[250px]" />
+                            <Skeleton className="h-4 w-[200px]" />
                           </div>
                         </div>
                       ))}
                     </div>
+                  ) : applications.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Job Title</TableHead>
+                          <TableHead>Company</TableHead>
+                          <TableHead>Applied On</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {applications.map((application) => (
+                          <TableRow key={application.id}>
+                            <TableCell className="font-medium">
+                              {application.job_url ? (
+                                <a 
+                                  href={application.job_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline"
+                                >
+                                  {application.job_title}
+                                </a>
+                              ) : (
+                                application.job_title
+                              )}
+                              {application.auto_applied && (
+                                <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-300">Auto</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>{application.company}</TableCell>
+                            <TableCell>{formatDate(application.created_at)}</TableCell>
+                            <TableCell>{getStatusBadge(application.status)}</TableCell>
+                            <TableCell>
+                              <div className="flex space-x-2">
+                                <select 
+                                  className="text-xs border rounded p-1"
+                                  value={application.status}
+                                  onChange={(e) => updateApplicationStatus(application.id, e.target.value)}
+                                >
+                                  <option value="applied">Applied</option>
+                                  <option value="interview">Interview</option>
+                                  <option value="offer">Offer</option>
+                                  <option value="rejected">Rejected</option>
+                                </select>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm"
+                                  onClick={() => deleteApplication(application.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <Alert className="max-w-md">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>No applications yet</AlertTitle>
+                        <AlertDescription>
+                          You haven't applied to any jobs yet. Start browsing jobs and applying!
+                        </AlertDescription>
+                      </Alert>
+                      <Button 
+                        variant="outline" 
+                        className="mt-4"
+                        onClick={() => navigate('/')}
+                      >
+                        Browse Jobs
+                      </Button>
+                    </div>
                   )}
                 </CardContent>
-                <CardFooter>
-                  <Button variant="outline" size="sm" className="ml-auto" onClick={() => setActiveTab("applications")}>
-                    View All
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </CardFooter>
               </Card>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="applications">
-            <Card>
-              <CardHeader>
-                <CardTitle>All Applications</CardTitle>
-                <CardDescription>History of all your job applications</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {applications.length === 0 ? (
-                  <div className="text-center py-10">
-                    <p className="text-muted-foreground mb-4">No applications have been made yet</p>
-                    <Button>Start Applying</Button>
+            </TabsContent>
+            
+            {/* Saved Jobs Tab */}
+            <TabsContent value="saved">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Saved Jobs</CardTitle>
+                  <CardDescription>Jobs you've saved for later</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {savedJobs.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Job Title</TableHead>
+                          <TableHead>Company</TableHead>
+                          <TableHead>Location</TableHead>
+                          <TableHead>Saved On</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {savedJobs.map((savedJob) => (
+                          <TableRow key={savedJob.id}>
+                            <TableCell className="font-medium">
+                              {savedJob.job?.title || 'Unknown Job'}
+                            </TableCell>
+                            <TableCell>{savedJob.job?.company || 'Unknown Company'}</TableCell>
+                            <TableCell>{savedJob.job?.location || 'Remote'}</TableCell>
+                            <TableCell>{formatDate(savedJob.created_at)}</TableCell>
+                            <TableCell>
+                              <div className="flex space-x-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => navigate(`/job/${savedJob.job_id}`)}
+                                >
+                                  View
+                                </Button>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm"
+                                  onClick={() => deleteSavedJob(savedJob.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <Alert className="max-w-md">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>No saved jobs</AlertTitle>
+                        <AlertDescription>
+                          You haven't saved any jobs yet. Save jobs by swiping right or clicking the bookmark icon.
+                        </AlertDescription>
+                      </Alert>
+                      <Button 
+                        variant="outline" 
+                        className="mt-4"
+                        onClick={() => navigate('/')}
+                      >
+                        Browse Jobs
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            {/* Resumes Tab */}
+            <TabsContent value="resumes">
+              <Card>
+                <CardHeader>
+                  <CardTitle>My Resumes</CardTitle>
+                  <CardDescription>Manage your resumes and upload new ones</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-4">
+                    <Button 
+                      className="flex items-center gap-2"
+                      onClick={() => navigate('/ai-assistant')}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Create New Resume
+                    </Button>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {applications.map((app) => (
-                      <div key={app.id} className="flex items-center justify-between border-b pb-4 last:border-0">
-                        <div className="flex-1">
-                          <div className="font-medium">{app.job_title}</div>
-                          <div className="text-sm text-muted-foreground">{app.company}</div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {formatDate(app.created_at)}
-                          </div>
-                          {app.notes && (
-                            <div className="text-xs mt-1 max-w-md text-muted-foreground">
-                              {app.notes}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <Badge 
-                            variant="outline" 
-                            className={`${
-                              app.status === 'applied' ? 'bg-green-100 text-green-800 border-green-200' : 
-                              app.status === 'pending' ? 'bg-blue-100 text-blue-800 border-blue-200' : 
-                              'bg-red-100 text-red-800 border-red-200'
-                            }`}
-                          >
-                            {app.status === 'applied' ? (
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                            ) : app.status === 'pending' ? (
-                              <Clock className="w-3 h-3 mr-1" />
-                            ) : (
-                              <XCircle className="w-3 h-3 mr-1" />
-                            )}
-                            {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-                          </Badge>
-                          
-                          {app.auto_applied && (
-                            <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-                              <Robot className="w-3 h-3 mr-1" />
-                              Auto
-                            </Badge>
-                          )}
-                          
-                          {app.job_url && (
+                  
+                  {resumes.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {resumes.map((resume) => (
+                        <Card key={resume.id} className="overflow-hidden">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-lg">{resume.title}</CardTitle>
+                            <CardDescription>Version {resume.version} • {formatDate(resume.updated_at)}</CardDescription>
+                          </CardHeader>
+                          <CardFooter className="flex justify-between">
                             <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8" 
-                              onClick={() => window.open(app.job_url, '_blank')}
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => navigate(`/ai-assistant?resumeId=${resume.id}`)}
                             >
-                              <ChevronRight className="h-4 w-4" />
+                              Edit
                             </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="resumes">
-            <ResumeUpload />
-          </TabsContent>
-          
-          <TabsContent value="settings">
-            <JobAgentConfig />
-          </TabsContent>
-        </Tabs>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => deleteResume(resume.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <Alert className="max-w-md">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>No resumes</AlertTitle>
+                        <AlertDescription>
+                          You haven't created any resumes yet. Create a resume to start applying for jobs.
+                        </AlertDescription>
+                      </Alert>
+                      <Button 
+                        variant="outline" 
+                        className="mt-4"
+                        onClick={() => navigate('/ai-assistant')}
+                      >
+                        Create Resume
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
       </main>
     </div>
   );
