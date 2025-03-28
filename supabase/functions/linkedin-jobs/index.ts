@@ -1,308 +1,274 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { load } from "https://deno.land/std@0.190.0/dotenv/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const linkedinClientId = Deno.env.get("LINKEDIN_CLIENT_ID") || "";
+const linkedinClientSecret = Deno.env.get("LINKEDIN_CLIENT_SECRET") || "";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// For production, these should be set in Supabase secrets
-const LINKEDIN_CLIENT_ID = Deno.env.get("LINKEDIN_CLIENT_ID") || "";
-const LINKEDIN_CLIENT_SECRET = Deno.env.get("LINKEDIN_CLIENT_SECRET") || "";
+// LinkedIn API endpoints
+const LINKEDIN_AUTH_URL = "https://www.linkedin.com/oauth/v2/accessToken";
+const LINKEDIN_JOB_SEARCH_URL = "https://api.linkedin.com/v2/jobSearch";
 
-// LinkedIn RSS feed URLs for job search
-const LINKEDIN_JOB_SEARCH_URL = "https://www.linkedin.com/jobs/search/";
-const LINKEDIN_JOB_RSS_URL = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search";
-
-// Function to fetch real LinkedIn job listings via their public API
-async function getLinkedInJobs(query: string, location: string, count: number = 10) {
-  console.log(`Fetching LinkedIn jobs for query: ${query}, location: ${location}, count: ${count}`);
-  
+// Get LinkedIn access token
+async function getLinkedInAccessToken() {
   try {
-    // Create search parameters for LinkedIn jobs
-    const searchParams = new URLSearchParams();
-    if (query) searchParams.set("keywords", query);
-    if (location) searchParams.set("location", location);
-    searchParams.set("start", "0");
-    searchParams.set("count", count.toString());
-    searchParams.set("f_WT", "2"); // Remote jobs filter
+    console.log("Attempting to get LinkedIn access token...");
+    if (!linkedinClientId || !linkedinClientSecret) {
+      console.error("LinkedIn API credentials not configured");
+      return null;
+    }
     
-    const url = `${LINKEDIN_JOB_RSS_URL}?${searchParams.toString()}`;
+    // For demo, we're using client credentials flow
+    const formData = new URLSearchParams();
+    formData.append("grant_type", "client_credentials");
+    formData.append("client_id", linkedinClientId);
+    formData.append("client_secret", linkedinClientSecret);
     
-    // Fetch jobs from LinkedIn's public API
+    const response = await fetch(LINKEDIN_AUTH_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formData.toString(),
+    });
+    
+    if (!response.ok) {
+      console.error(`LinkedIn auth failed: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`Response: ${errorText}`);
+      throw new Error(`LinkedIn auth failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log("Successfully obtained LinkedIn access token");
+    return data.access_token;
+  } catch (error) {
+    console.error("Error getting LinkedIn access token:", error);
+    return null;
+  }
+}
+
+// Search LinkedIn jobs with the given parameters
+async function searchLinkedInJobs(params: any, accessToken: string) {
+  try {
+    console.log("Searching LinkedIn jobs with params:", params);
+    const { query = "", location = "", count = 10, lastJobId } = params;
+    
+    let url = `${LINKEDIN_JOB_SEARCH_URL}?keywords=${encodeURIComponent(query)}`;
+    
+    if (location) {
+      url += `&location=${encodeURIComponent(location)}`;
+    }
+    
+    url += `&count=${count}`;
+    
+    // Add more filters based on the filters parameter
+    if (params.filters) {
+      if (params.filters.jobType?.length > 0) {
+        url += `&jobType=${encodeURIComponent(params.filters.jobType[0])}`;
+      }
+      
+      if (params.filters.experienceLevel?.length > 0) {
+        url += `&experience=${encodeURIComponent(params.filters.experienceLevel[0])}`;
+      }
+      
+      if (params.filters.datePosted?.length > 0) {
+        const datePosted = params.filters.datePosted[0];
+        // Map our date posted filters to LinkedIn time ranges
+        if (datePosted === "past24h") {
+          url += "&timePosted=past-24h";
+        } else if (datePosted === "past3d") {
+          url += "&timePosted=past-3d";
+        } else if (datePosted === "pastWeek") {
+          url += "&timePosted=past-week";
+        } else if (datePosted === "pastMonth") {
+          url += "&timePosted=past-month";
+        }
+      }
+    }
+    
+    // Pagination using lastJobId
+    if (lastJobId) {
+      url += `&start=${lastJobId}`;
+    }
+    
+    console.log("LinkedIn job search URL:", url);
+    
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
-        "Accept": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        "X-Restli-Protocol-Version": "2.0.0",
       },
     });
-
+    
     if (!response.ok) {
-      console.error(`LinkedIn API error: ${response.status} ${response.statusText}`);
-      // Fall back to simulated data if the API fails
-      return generateLinkedInJobSimulations(query, location, count);
+      console.error(`LinkedIn job search failed: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`Response: ${errorText}`);
+      throw new Error(`LinkedIn job search failed: ${response.status} ${response.statusText}`);
     }
     
-    const html = await response.text();
+    const data = await response.json();
+    console.log(`Found ${data.elements?.length || 0} LinkedIn jobs`);
     
-    // Parse the jobs from the HTML response
-    const jobs = parseLinkedInJobsFromHTML(html, query);
-    
-    if (jobs.length === 0) {
-      console.log("No jobs found in LinkedIn API response, falling back to simulated data");
-      return generateLinkedInJobSimulations(query, location, count);
-    }
-    
-    console.log(`Generated ${jobs.length} LinkedIn jobs with filters { query: "${query}", location: "${location}" }`);
-    return jobs;
-  } catch (error) {
-    console.error("Error fetching LinkedIn jobs:", error);
-    // Fall back to simulated data
-    return generateLinkedInJobSimulations(query, location, count);
-  }
-}
-
-// Parse LinkedIn jobs from their HTML response
-function parseLinkedInJobsFromHTML(html: string, query: string): any[] {
-  try {
-    const jobs = [];
-    
-    // Simple regex-based parsing for job listings
-    // Caution: This is fragile and will break if LinkedIn changes their HTML structure
-    const jobCardRegex = /<div class="base-card[^>]*?>\s*<a[^>]*?href="([^"]*)"[^>]*?>[\s\S]*?<h3[^>]*?>\s*([^<]*?)\s*<\/h3>[\s\S]*?<h4[^>]*?>\s*([^<]*?)\s*<\/h4>[\s\S]*?<div class="job-search-card__location">\s*([^<]*?)\s*<\/div>/gi;
-    
-    let match;
-    let jobIndex = 0;
-    while ((match = jobCardRegex.exec(html)) !== null && jobIndex < 20) {
-      const jobUrl = match[1];
-      const title = match[2].trim();
-      const company = match[3].trim();
-      const location = match[4].trim();
-      
-      // Generate a unique ID for the job
-      const jobId = `linkedin-${jobIndex}-${Date.now()}`;
-      
-      // LinkedIn job URL
-      const linkedInJobUrl = jobUrl.startsWith("https://") ? jobUrl : `https://www.linkedin.com${jobUrl}`;
-      
-      // Create a job object that matches our application's Job interface
-      jobs.push({
-        id: jobId,
-        title: title,
-        company: company,
-        location: location,
-        salary: "Competitive",
-        description: `This is a ${title} position at ${company} located in ${location}. The job was sourced from LinkedIn's job search API.`,
-        requirements: getRandomRequirements(title),
-        posted: `Posted ${Math.floor(Math.random() * 14) + 1} days ago`,
-        type: ["Full-time", "Remote", "Hybrid"][Math.floor(Math.random() * 3)],
-        logo: getCompanyLogo(company),
-        isNew: true,
-        url: linkedInJobUrl,
-        applicationUrl: `${linkedInJobUrl}/apply`,
-        source: "linkedin",
-        sourceId: jobId
-      });
-      
-      jobIndex++;
-    }
-    
-    return jobs;
-  } catch (error) {
-    console.error("Error parsing LinkedIn jobs:", error);
-    return [];
-  }
-}
-
-// Get a realistic logo URL for the company
-function getCompanyLogo(company: string): string {
-  // Map of known companies to their logo URLs
-  const knownCompanyLogos: Record<string, string> = {
-    "Google": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/2048px-Google_%22G%22_Logo.svg.png",
-    "Microsoft": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Microsoft_logo.svg/2048px-Microsoft_logo.svg.png",
-    "Amazon": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Amazon_logo.svg/2560px-Amazon_logo.svg.png",
-    "Meta": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Meta_Platforms_Inc._logo.svg/2560px-Meta_Platforms_Inc._logo.svg.png",
-    "Apple": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/1667px-Apple_logo_black.svg.png",
-    "Salesforce": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Salesforce.com_logo.svg/2560px-Salesforce.com_logo.svg.png",
-    "IBM": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/IBM_logo.svg/2560px-IBM_logo.svg.png",
-    "Oracle": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Oracle_logo.svg/2560px-Oracle_logo.svg.png",
-    "Intel": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Intel_logo_%282006-2020%29.svg/1005px-Intel_logo_%282006-2020%29.svg.png",
-    "Adobe": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Adobe_Systems_logo_and_wordmark.svg/1280px-Adobe_Systems_logo_and_wordmark.svg.png",
-  };
-
-  const lowerCaseCompany = company.toLowerCase();
-  
-  // Check for partial matches in company names
-  for (const [knownCompany, logoUrl] of Object.entries(knownCompanyLogos)) {
-    if (lowerCaseCompany.includes(knownCompany.toLowerCase())) {
-      return logoUrl;
-    }
-  }
-  
-  // Generate a default logo based on the first letter of the company name
-  const firstLetter = company.charAt(0).toUpperCase();
-  return `https://ui-avatars.com/api/?name=${firstLetter}&background=random&size=128`;
-}
-
-// Get relevant requirements based on job title
-function getRandomRequirements(title: string): string[] {
-  const lowercaseTitle = title.toLowerCase();
-  
-  // Map common keywords to relevant skills
-  if (lowercaseTitle.includes("software") || lowercaseTitle.includes("developer") || lowercaseTitle.includes("engineer")) {
-    return ["JavaScript", "React", "Node.js", "TypeScript", "AWS", "REST APIs", "Git"];
-  } else if (lowercaseTitle.includes("data") || lowercaseTitle.includes("scientist") || lowercaseTitle.includes("analyst")) {
-    return ["Python", "SQL", "Data Analysis", "Machine Learning", "Statistics", "Data Visualization"];
-  } else if (lowercaseTitle.includes("product") || lowercaseTitle.includes("manager")) {
-    return ["Product Strategy", "Agile", "User Research", "Roadmap Development", "Stakeholder Management"];
-  } else if (lowercaseTitle.includes("design") || lowercaseTitle.includes("ux") || lowercaseTitle.includes("ui")) {
-    return ["Figma", "User Research", "Wireframing", "Prototyping", "Design Systems"];
-  } else {
-    return ["Communication", "Problem Solving", "Team Collaboration", "Project Management", "Time Management"];
-  }
-}
-
-// Fallback function to generate simulated LinkedIn job data
-function generateLinkedInJobSimulations(query: string, location: string, count: number = 10) {
-  console.log(`Generating ${count} simulated LinkedIn jobs for query: ${query}, location: ${location}`);
-  
-  const companies = [
-    { name: "Google", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/2048px-Google_%22G%22_Logo.svg.png" },
-    { name: "Microsoft", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Microsoft_logo.svg/2048px-Microsoft_logo.svg.png" },
-    { name: "Amazon", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Amazon_logo.svg/2560px-Amazon_logo.svg.png" },
-    { name: "Meta", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Meta_Platforms_Inc._logo.svg/2560px-Meta_Platforms_Inc._logo.svg.png" },
-    { name: "Apple", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/1667px-Apple_logo_black.svg.png" },
-    { name: "Salesforce", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Salesforce.com_logo.svg/2560px-Salesforce.com_logo.svg.png" },
-    { name: "IBM", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/IBM_logo.svg/2560px-IBM_logo.svg.png" },
-    { name: "Oracle", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Oracle_logo.svg/2560px-Oracle_logo.svg.png" },
-    { name: "Intel", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Intel_logo_%282006-2020%29.svg/1005px-Intel_logo_%282006-2020%29.svg.png" },
-    { name: "Adobe", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Adobe_Systems_logo_and_wordmark.svg/1280px-Adobe_Systems_logo_and_wordmark.svg.png" },
-  ];
-
-  const jobTitles = [
-    "Software Engineer",
-    "Senior Software Engineer",
-    "Full Stack Developer",
-    "Product Manager",
-    "Data Scientist",
-    "UX Designer",
-    "DevOps Engineer",
-    "Frontend Developer",
-    "Backend Developer",
-    "Machine Learning Engineer",
-    "AI Engineer",
-    "Cloud Architect",
-    "Project Manager",
-    "QA Engineer",
-    "Technical Program Manager"
-  ];
-  
-  const locations = location ? [location] : ["San Francisco, CA", "New York, NY", "Seattle, WA", "Austin, TX", "Boston, MA", "Remote"];
-  
-  const requirements = [
-    ["JavaScript", "React", "Node.js", "TypeScript", "AWS", "REST APIs", "Git"],
-    ["Python", "Django", "Flask", "SQL", "Docker", "Kubernetes"],
-    ["Java", "Spring Boot", "Microservices", "Cloud Computing", "CI/CD"],
-    ["UI/UX Design", "Figma", "Adobe XD", "User Research", "Prototyping"],
-    ["Data Science", "Machine Learning", "SQL", "Python", "TensorFlow", "PyTorch"],
-    ["Go", "Rust", "C++", "Systems Programming", "Distributed Systems"],
-    ["Cloud Services", "AWS", "Azure", "GCP", "Serverless", "Terraform"]
-  ];
-  
-  const salaryRanges = ["$120K - $150K", "$90K - $120K", "$150K - $180K", "$160K - $200K", "$200K - $250K"];
-  
-  const jobs = [];
-  
-  for (let i = 0; i < count; i++) {
-    const company = companies[Math.floor(Math.random() * companies.length)];
-    const titleIndex = Math.floor(Math.random() * jobTitles.length);
-    const title = query ? `${query} ${titleIndex % 2 === 0 ? 'Senior' : ''}` : jobTitles[titleIndex];
-    const jobLocation = locations[Math.floor(Math.random() * locations.length)];
-    const requirementSet = requirements[Math.floor(Math.random() * requirements.length)];
-    const salary = salaryRanges[Math.floor(Math.random() * salaryRanges.length)];
-    
-    // Generate a LinkedIn-like URL and application URL
-    const jobId = crypto.randomUUID().substring(0, 8);
-    const linkedInJobUrl = `https://www.linkedin.com/jobs/view/linkedin-${jobId}`;
-    
-    const description = `
-      We are looking for a talented ${title} to join our team at ${company.name}. 
-      In this role, you will be responsible for developing and maintaining high-quality software solutions.
-      You will work closely with cross-functional teams to deliver innovative products that meet business requirements.
-
-      Key Responsibilities:
-      - Design, develop, and maintain software applications
-      - Collaborate with product managers, designers, and other stakeholders
-      - Write clean, efficient, and maintainable code
-      - Participate in code reviews and technical discussions
-      - Troubleshoot and fix software defects
-
-      Required Skills:
-      ${requirementSet.slice(0, 4).join(', ')}
-
-      Preferred Skills:
-      ${requirementSet.slice(4).join(', ')}
-
-      We offer a competitive salary and benefits package, as well as opportunities for professional growth and development.
-    `;
-    
-    jobs.push({
-      id: `linkedin-${jobId}`,
-      title: title,
-      company: company.name,
-      location: jobLocation,
-      salary: salary,
-      description: description,
-      requirements: requirementSet,
-      posted: `Posted ${Math.floor(Math.random() * 14) + 1} days ago`,
-      type: ["Full-time", "Part-time", "Contract", "Remote"][Math.floor(Math.random() * 4)],
-      logo: company.logo,
-      isNew: Math.random() > 0.7, // 30% chance of being marked as new
-      url: linkedInJobUrl,
-      applicationUrl: `${linkedInJobUrl}/apply`,
+    // Transform LinkedIn's response to our Job format
+    const jobs = data.elements.map((job: any) => ({
+      id: job.entityUrn.split(":").pop(),
+      title: job.title,
+      company: job.companyName,
+      location: job.formattedLocation || job.location,
+      description: job.description || "",
+      requirements: job.skills || [],
+      posted: job.listedAt || new Date().toISOString(),
+      type: job.jobState || "ACTIVE",
+      salary: job.salary || "Not specified",
+      logo: job.companyLogo || "",
+      isNew: true,
+      url: `https://www.linkedin.com/jobs/view/${job.entityUrn.split(":").pop()}`,
+      applicationUrl: job.applyMethod?.companyApplyUrl || `https://www.linkedin.com/jobs/view/${job.entityUrn.split(":").pop()}`,
       source: "linkedin",
-      sourceId: `linkedin-${jobId}`
-    });
+      sourceId: job.entityUrn
+    }));
+    
+    return jobs;
+  } catch (error) {
+    console.error("Error searching LinkedIn jobs:", error);
+    return null;
   }
+}
+
+// Generate mock LinkedIn jobs when API is not available or for testing
+function generateMockLinkedInJobs(params: any) {
+  const { query = "", location = "", count = 10, filters = {} } = params;
+  console.log(`Generating ${count} LinkedIn jobs with filters`, { filtersApplied: Object.keys(filters) });
+  
+  const mockCompanies = [
+    "Google", "Microsoft", "Amazon", "Apple", "Facebook", "Twitter", "LinkedIn", "Netflix", "Airbnb",
+    "Uber", "Lyft", "Stripe", "Spotify", "Adobe", "Salesforce", "Oracle", "IBM", "Intel", "Cisco"
+  ];
+  
+  const mockLocations = [
+    "San Francisco, CA", "New York, NY", "Seattle, WA", "Los Angeles, CA", "Austin, TX",
+    "Boston, MA", "Chicago, IL", "Denver, CO", "Atlanta, GA", "Remote"
+  ];
+  
+  const mockJobTypes = [
+    "Full-time", "Part-time", "Contract", "Temporary", "Internship"
+  ];
+  
+  const mockTitles = [
+    "Software Engineer", "Product Manager", "UX Designer", "Data Scientist", "DevOps Engineer",
+    "Frontend Developer", "Backend Developer", "Full Stack Developer", "Machine Learning Engineer",
+    "Marketing Manager", "Sales Representative", "Customer Success Manager", "Financial Analyst"
+  ];
+  
+  // Use filters and query parameters to make the mock data more relevant
+  let filteredTitles = mockTitles;
+  let filteredLocations = mockLocations;
+  let filteredJobTypes = mockJobTypes;
+  
+  if (query) {
+    filteredTitles = mockTitles.filter(title => 
+      title.toLowerCase().includes(query.toLowerCase())
+    );
+    if (filteredTitles.length === 0) filteredTitles = mockTitles;
+  }
+  
+  if (location) {
+    filteredLocations = mockLocations.filter(loc => 
+      loc.toLowerCase().includes(location.toLowerCase())
+    );
+    if (filteredLocations.length === 0) filteredLocations = mockLocations;
+  }
+  
+  if (filters.jobType?.length > 0) {
+    filteredJobTypes = mockJobTypes.filter(type => 
+      filters.jobType.some((filter: string) => 
+        type.toLowerCase().includes(filter.toLowerCase())
+      )
+    );
+    if (filteredJobTypes.length === 0) filteredJobTypes = mockJobTypes;
+  }
+  
+  const jobs = Array.from({ length: count }, (_, i) => {
+    const company = mockCompanies[Math.floor(Math.random() * mockCompanies.length)];
+    const title = filteredTitles[Math.floor(Math.random() * filteredTitles.length)];
+    const loc = filteredLocations[Math.floor(Math.random() * filteredLocations.length)];
+    const jobType = filteredJobTypes[Math.floor(Math.random() * filteredJobTypes.length)];
+    
+    // Generate salary based on job title and type
+    let salary = "";
+    if (title.includes("Engineer") || title.includes("Developer")) {
+      salary = "$100,000 - $150,000";
+    } else if (title.includes("Manager")) {
+      salary = "$120,000 - $180,000";
+    } else if (title.includes("Designer")) {
+      salary = "$90,000 - $120,000";
+    } else if (title.includes("Intern")) {
+      salary = "$20 - $30 per hour";
+    } else {
+      salary = "$80,000 - $120,000";
+    }
+    
+    // Adjust for part-time and contract
+    if (jobType === "Part-time") {
+      salary = salary.replace(/\$(\d+),000/g, (_, num) => `$${Math.floor(parseInt(num) * 0.6)},000`);
+    } else if (jobType === "Contract") {
+      salary = salary.replace(/\$(\d+),000/g, (_, num) => `$${Math.floor(parseInt(num) * 1.2)},000`);
+    }
+    
+    // Generate mock requirements based on job title
+    const requirements = [];
+    if (title.includes("Engineer") || title.includes("Developer")) {
+      requirements.push("JavaScript", "TypeScript", "React", "Node.js");
+      if (title.includes("Frontend")) {
+        requirements.push("CSS", "HTML", "UI/UX");
+      } else if (title.includes("Backend")) {
+        requirements.push("API Design", "Databases", "Cloud Infrastructure");
+      } else if (title.includes("Full Stack")) {
+        requirements.push("Frontend", "Backend", "DevOps");
+      }
+    } else if (title.includes("Designer")) {
+      requirements.push("Figma", "Adobe Creative Suite", "UI/UX", "Prototyping");
+    } else if (title.includes("Data")) {
+      requirements.push("Python", "SQL", "Machine Learning", "Data Visualization");
+    } else if (title.includes("Manager")) {
+      requirements.push("Leadership", "Communication", "Project Management", "Team Building");
+    }
+    
+    // Convert requirements to strings
+    const stringRequirements = requirements.map(req => req.toString());
+    
+    const postedDate = new Date();
+    postedDate.setDate(postedDate.getDate() - Math.floor(Math.random() * 14)); // Random date within last 2 weeks
+    
+    return {
+      id: `linkedin-job-${Date.now()}-${i}`,
+      title,
+      company,
+      location: loc,
+      salary,
+      description: `${title} position at ${company}. We're looking for a talented professional to join our team. The ideal candidate will have experience in ${requirements.join(", ")}.`,
+      requirements: stringRequirements,
+      posted: postedDate.toISOString(),
+      type: jobType,
+      logo: `https://logo.clearbit.com/${company.toLowerCase().replace(/\s+/g, "")}.com`, // Use Clearbit for logos
+      isNew: Math.random() > 0.7, // 30% chance of being marked as new
+      url: `https://www.linkedin.com/jobs/view/linkedin-job-${Date.now()}-${i}`,
+      applicationUrl: `https://www.linkedin.com/jobs/view/linkedin-job-${Date.now()}-${i}/apply`,
+      source: "linkedin",
+      sourceId: `linkedin-job-${Date.now()}-${i}`
+    };
+  });
   
   return jobs;
-}
-
-// Handle auto-application to LinkedIn jobs
-async function simulateLinkedInApplication(jobDetails: any, userId: string) {
-  console.log(`Attempting to auto-apply for LinkedIn job: ${jobDetails.title} at ${jobDetails.company}`);
-  
-  // Simulate a success rate of 70% for LinkedIn job applications
-  const isSuccessful = Math.random() < 0.7;
-  
-  // Simulate application process timing
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  if (isSuccessful) {
-    return {
-      success: true,
-      message: `Successfully applied to ${jobDetails.title} at ${jobDetails.company} via LinkedIn`,
-      applicationDetails: {
-        jobId: jobDetails.id,
-        userId: userId,
-        appliedAt: new Date().toISOString(),
-        status: 'applied'
-      }
-    };
-  } else {
-    return {
-      success: false,
-      message: `Could not complete application to ${jobDetails.title} on LinkedIn. The job has been saved for manual application.`,
-      applicationDetails: {
-        jobId: jobDetails.id,
-        userId: userId,
-        appliedAt: new Date().toISOString(),
-        status: 'failed'
-      }
-    };
-  }
 }
 
 serve(async (req) => {
@@ -312,50 +278,116 @@ serve(async (req) => {
   }
 
   try {
-    const { action, query, location, count, jobDetails, userId, lastJobId, filters = {} } = await req.json();
+    console.log("Received request to linkedin-jobs function");
+    const { filters = {}, count = 10, lastJobId, source = "generic", query, location } = await req.json();
+    console.log(`Received job search request. Source: ${source}, Filters:`, filters);
     
-    // Handle different actions
-    if (action === 'search') {
-      console.log(`LinkedIn job search: query=${query}, location=${location}, count=${count}`);
+    // For LinkedIn jobs, try to use the LinkedIn API
+    if (source === "linkedin") {
+      const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
       
-      // Add all filter parameters to the log
-      const filtersApplied = Object.entries(filters)
-        .filter(([_, value]) => value && 
-                (Array.isArray(value) ? value.length > 0 : value !== ''))
-        .map(([key, value]) => `${key}: ${JSON.stringify(value)}`);
+      // Try to get a LinkedIn access token
+      const accessToken = await getLinkedInAccessToken();
       
-      console.log(`Filters applied: ${filtersApplied.length > 0 ? filtersApplied.join(', ') : 'none'}`);
-      
-      // Get real LinkedIn jobs
-      const jobs = await getLinkedInJobs(query, location, count || 10);
-      
-      return new Response(
-        JSON.stringify({ jobs }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } 
-    else if (action === 'apply') {
-      console.log(`Processing LinkedIn job application: ${jobDetails?.title}`);
-      
-      if (!jobDetails || !userId) {
-        throw new Error('Missing job details or user ID');
+      if (accessToken) {
+        console.log("Got LinkedIn access token, searching for real jobs");
+        // If we have an access token, search for jobs using the LinkedIn API
+        const params = { 
+          query: query || filters.job_function?.[0] || filters.jobType?.[0] || "", 
+          location: location || filters.location || "",
+          count,
+          lastJobId,
+          filters
+        };
+        
+        const linkedInJobs = await searchLinkedInJobs(params, accessToken);
+        
+        if (linkedInJobs && linkedInJobs.length > 0) {
+          console.log(`Returning ${linkedInJobs.length} real LinkedIn jobs`);
+          return new Response(
+            JSON.stringify({ jobs: linkedInJobs }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
       
-      const result = await simulateLinkedInApplication(jobDetails, userId);
+      console.log("Falling back to mock LinkedIn jobs");
+      // If LinkedIn API fails or returns no results, fall back to mock data
+      const mockParams = { 
+        query: query || filters.job_function?.[0] || filters.jobType?.[0] || "", 
+        location: location || filters.location || "",
+        count,
+        filters
+      };
+      
+      const mockJobs = generateMockLinkedInJobs(mockParams);
       
       return new Response(
-        JSON.stringify(result),
+        JSON.stringify({ jobs: mockJobs }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    else {
-      throw new Error(`Unknown action: ${action}`);
+    
+    // For any other source, use the database
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+    
+    // Build the query
+    let query = supabase.from('jobs').select('*');
+    
+    // Apply filters
+    if (filters.jobTitle) {
+      query = query.ilike('title', `%${filters.jobTitle}%`);
     }
+    
+    if (filters.location) {
+      query = query.ilike('location', `%${filters.location}%`);
+    }
+    
+    if (filters.company) {
+      query = query.ilike('company', `%${filters.company}%`);
+    }
+    
+    if (filters.jobType && filters.jobType.length > 0) {
+      // Handle array of job types
+      const jobTypeConditions = filters.jobType.map((type) => 
+        `type.ilike.%${type}%`
+      );
+      query = query.or(jobTypeConditions.join(','));
+    }
+    
+    // Pagination using lastJobId
+    if (lastJobId) {
+      const { data: lastJob } = await supabase
+        .from('jobs')
+        .select('created_at')
+        .eq('id', lastJobId)
+        .single();
+        
+      if (lastJob) {
+        query = query.lt('created_at', lastJob.created_at);
+      }
+    }
+    
+    // Execute the query
+    const { data: jobs, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(count);
+      
+    if (error) {
+      throw error;
+    }
+    
+    console.log(`Retrieved ${jobs?.length || 0} database jobs`);
+    
+    return new Response(
+      JSON.stringify({ jobs: jobs || [] }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
-    console.error('Error in linkedin-jobs function:', error);
+    console.error('Error in job-search function:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'An error occurred processing the LinkedIn job request'
+        error: error.message || 'Failed to retrieve jobs' 
       }),
       { 
         status: 500, 

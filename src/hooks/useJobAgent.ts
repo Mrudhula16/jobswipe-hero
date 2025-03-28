@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -14,17 +15,19 @@ interface JobApplication {
   created_at?: string;
 }
 
-interface JobAgentConfig {
+export interface AutoApplyPreferences {
+  apply_on_swipe_right: boolean;
+  skills_match_threshold: number;
+  location_preference: string;
+  max_daily_applications: number;
+}
+
+export interface JobAgentConfig {
   id?: string;
   is_active: boolean;
   ml_parameters?: Record<string, any>;
   resume_id?: string;
-  auto_apply_preferences?: {
-    apply_on_swipe_right: boolean;
-    skills_match_threshold: number;
-    location_preference: string;
-    max_daily_applications: number;
-  };
+  auto_apply_preferences?: AutoApplyPreferences;
   created_at?: string;
   updated_at?: string;
 }
@@ -75,7 +78,25 @@ export const useJobAgent = (): UseJobAgentReturn => {
       if (configError && configError.code !== 'PGRST116') throw configError;
       
       if (configData) {
-        setAgentConfig(configData);
+        // Convert raw JSON data to proper typed objects
+        const typedConfig: JobAgentConfig = {
+          id: configData.id,
+          is_active: configData.is_active,
+          ml_parameters: typeof configData.ml_parameters === 'object' ? configData.ml_parameters : {},
+          resume_id: configData.resume_id,
+          auto_apply_preferences: typeof configData.auto_apply_preferences === 'object' ? 
+            configData.auto_apply_preferences as AutoApplyPreferences : 
+            {
+              apply_on_swipe_right: true,
+              skills_match_threshold: 60,
+              location_preference: "remote",
+              max_daily_applications: 10
+            },
+          created_at: configData.created_at,
+          updated_at: configData.updated_at
+        };
+        
+        setAgentConfig(typedConfig);
       }
       
       const { data: appData, error: appError } = await supabase
@@ -214,9 +235,13 @@ export const useJobAgent = (): UseJobAgentReturn => {
         return 0;
       }
       
-      const resumeSkills = resumeData.skills.map(skill => 
-        typeof skill === 'string' ? skill.toLowerCase() : skill.name.toLowerCase()
-      );
+      const resumeSkills = resumeData.skills.map(skill => {
+        if (typeof skill === 'string') return skill.toLowerCase();
+        if (typeof skill === 'object' && skill !== null && 'name' in skill) {
+          return (skill as {name: string}).name.toLowerCase();
+        }
+        return '';
+      }).filter(Boolean);
       
       const jobSkills: string[] = [];
       

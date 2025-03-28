@@ -114,7 +114,7 @@ export const applyToJob = async (jobDetails: Job): Promise<boolean> => {
     
     // If this is a LinkedIn job, use the LinkedIn application process
     if (jobDetails.source === 'linkedin') {
-      const { data: applyData, error: applyError } = await supabase.functions.invoke('linkedin-jobs', {
+      const { data: applyData, error: applyError } = await supabase.functions.invoke('job-auto-apply', {
         body: { 
           action: 'apply',
           jobDetails,
@@ -139,9 +139,35 @@ export const applyToJob = async (jobDetails: Job): Promise<boolean> => {
 // Fetch job filter categories and options from the database
 export const getJobFilterCategories = async (): Promise<FilterCategory[]> => {
   try {
-    // This function is now implemented in the useJobFilters hook
-    const { filterCategories } = useJobFilters();
-    return filterCategories;
+    // Fetch from database instead of using hook
+    const { data, error } = await supabase
+      .from('job_filter_categories')
+      .select(`
+        id, 
+        name, 
+        description,
+        job_filter_options (
+          id,
+          value,
+          label,
+          description
+        )
+      `);
+      
+    if (error) throw error;
+    
+    // Transform data to match FilterCategory type
+    return (data || []).map(category => ({
+      id: category.id,
+      name: category.name,
+      description: category.description,
+      options: category.job_filter_options.map(option => ({
+        id: option.id,
+        value: option.value,
+        label: option.label,
+        description: option.description
+      }))
+    }));
   } catch (error) {
     console.error("Error fetching job filter categories:", error);
     return [];
@@ -151,9 +177,27 @@ export const getJobFilterCategories = async (): Promise<FilterCategory[]> => {
 // Get options for a specific category
 export const getFilterOptionsByCategory = async (categoryName: string): Promise<FilterOption[]> => {
   try {
-    // This function is now implemented in the useJobFilters hook
-    const { getOptionsByCategory } = useJobFilters();
-    return getOptionsByCategory(categoryName);
+    const { data, error } = await supabase
+      .from('job_filter_categories')
+      .select(`
+        job_filter_options (
+          id,
+          value,
+          label,
+          description
+        )
+      `)
+      .eq('name', categoryName)
+      .single();
+      
+    if (error) throw error;
+    
+    return (data?.job_filter_options || []).map(option => ({
+      id: option.id,
+      value: option.value,
+      label: option.label,
+      description: option.description
+    }));
   } catch (error) {
     console.error(`Error fetching options for category ${categoryName}:`, error);
     return [];
