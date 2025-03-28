@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
   ThumbsUp, ThumbsDown, Undo2, RotateCcw, 
-  Share2, ExternalLink, CheckCircle, Robot
+  Share2, ExternalLink, CheckCircle, Bot
 } from "lucide-react";
 import { useJobAgent } from "@/hooks/useJobAgent";
 import { useToast } from "@/hooks/use-toast";
@@ -79,7 +79,7 @@ const JobCardActions = ({
             
             {shouldAutoApply && isActive && (
               <div className="px-2 py-1 rounded-full bg-blue-500/10 text-blue-600 text-xs font-medium flex items-center">
-                <Robot className="w-3 h-3 mr-1" />
+                <Bot className="w-3 h-3 mr-1" />
                 Auto-apply
               </div>
             )}
@@ -132,7 +132,7 @@ const JobCardActions = ({
             >
               {shouldAutoApply && isActive ? (
                 <>
-                  <Robot className="h-5 w-5 mr-1" />
+                  <Bot className="h-5 w-5 mr-1" />
                   Auto-Apply
                 </>
               ) : (

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { Logo } from "@/components/Logo";
-import { User, Settings, LogOut, Search, BriefcaseBusiness, Robot } from "lucide-react";
+import { User, Settings, LogOut, Search, BriefcaseBusiness, Bot } from "lucide-react";
 
 const Navbar = () => {
   const { user, isAuthenticated, signOut } = useAuth();
@@ -39,7 +39,7 @@ const Navbar = () => {
               <BriefcaseBusiness className="h-4 w-4 mr-1 inline-block" /> My Jobs
             </Link>
             <Link to="/ai-assistant" className="text-sm font-medium transition-colors hover:text-primary">
-              <Robot className="h-4 w-4 mr-1 inline-block" /> AI Assistant
+              <Bot className="h-4 w-4 mr-1 inline-block" /> AI Assistant
             </Link>
           </nav>
         </div>
