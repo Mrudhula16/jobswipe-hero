@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 const SignIn = () => {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState(''); // Added password state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [otp, setOtp] = useState('');
   const [showOtpInput, setShowOtpInput] = useState(false);
@@ -18,10 +19,10 @@ const SignIn = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
+    if (!email || !password) { // Check for both email and password
       toast({
-        title: "Email required",
-        description: "Please enter your email address",
+        title: "Required fields missing",
+        description: "Please enter your email and password",
         variant: "destructive",
       });
       return;
@@ -29,19 +30,20 @@ const SignIn = () => {
 
     setIsSubmitting(true);
     try {
-      await loginWithEmail(email);
-      setShowOtpInput(true);
+      await loginWithEmail(email, password);
+      navigate('/');
       toast({
-        title: "Check your email",
-        description: "We've sent you a magic link or OTP code",
+        title: "Signed in successfully",
+        description: "Welcome back!",
       });
     } catch (error) {
-      console.error("Error sending magic link:", error);
+      console.error("Error signing in:", error);
       toast({
-        title: "Failed to send email",
-        description: "Please try again later",
+        title: "Failed to sign in",
+        description: "Please check your credentials and try again",
         variant: "destructive",
       });
+      setShowOtpInput(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -104,12 +106,24 @@ const SignIn = () => {
                   required
                 />
               </div>
+              <div className="space-y-2">
+                <label htmlFor="password" className="text-sm font-medium">Password</label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isSubmitting}
+                  required
+                />
+              </div>
               <Button 
                 type="submit" 
                 className="w-full" 
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Sending..." : "Continue with Email"}
+                {isSubmitting ? "Signing in..." : "Sign In"}
               </Button>
             </form>
           ) : (
@@ -140,7 +154,7 @@ const SignIn = () => {
                 onClick={() => setShowOtpInput(false)}
                 disabled={isSubmitting}
               >
-                Back to Email
+                Back to Sign In
               </Button>
             </form>
           )}

@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
-import { JobAgentConfigDialog } from '@/components/JobAgentConfig';
+import JobAgentConfigDialog from '@/components/JobAgentConfigDialog';
 import { useJobAgent } from '@/hooks/useJobAgent';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -74,7 +73,7 @@ const JobAgentDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { isActive, agentConfig } = useJobAgent();
+  const { isActive, config } = useJobAgent();
   
   const [activeTab, setActiveTab] = useState('applications');
   const [applications, setApplications] = useState<JobApplication[]>([]);
@@ -343,7 +342,7 @@ const JobAgentDashboard = () => {
                 </div>
                 <div className="text-sm text-muted-foreground">
                   {isActive 
-                    ? `Using resume: ${agentConfig?.resume_id ? (resumes.find(r => r.id === agentConfig.resume_id)?.title || 'Unknown') : 'None selected'}` 
+                    ? `Using resume: ${config?.resume_id ? (resumes.find(r => r.id === config.resume_id)?.title || 'Unknown') : 'None selected'}` 
                     : 'Configure your job agent to start receiving personalized job matches'}
                 </div>
               </div>

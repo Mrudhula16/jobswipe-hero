@@ -19,6 +19,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<{success: boolean, error?: any}>;
+  verifyOTP: (email: string, otp: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
       
-      return { success: true };
+      // Return void to match the type signature
     } catch (error: any) {
       console.error("Login error:", error);
       showToast(error.message || "An error occurred during login.", "error");
@@ -111,6 +112,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const verifyOTP = async (email: string, otp: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: otp,
+        type: 'email'
+      });
+
+      if (error) {
+        throw error;
+      }
+      
+      showToast("Verification successful", "success");
+    } catch (error: any) {
+      console.error("OTP verification error:", error);
+      showToast(error.message || "Failed to verify code", "error");
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value = {
     user,
     session,
@@ -118,7 +142,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     signOut,
     loginWithEmail,
-    signUp
+    signUp,
+    verifyOTP
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

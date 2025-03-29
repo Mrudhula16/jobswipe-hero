@@ -21,7 +21,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import useJobSwiper from "@/hooks/useJobSwiper";
 import { getFilteredJobs } from "@/services/jobService";
 import { useJobAgent } from "@/hooks/useJobAgent";
-import { JobAgentConfigDialog } from "@/components/JobAgentConfig";
+import JobAgentConfigDialog from "@/components/JobAgentConfigDialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import JobAgentConfig from "@/components/JobAgentConfig";
 import JobFilters from "@/components/JobFilters";
@@ -70,7 +70,6 @@ const JobSwipe = () => {
   };
 
   const handleJobFiltersChange = (newFilters: Record<string, string[]>) => {
-    // Map the database filter format to our application format
     setFilters(prev => ({
       ...prev,
       jobType: newFilters['job_type'] || [],
@@ -84,8 +83,6 @@ const JobSwipe = () => {
   const applyJobFilters = async (formattedFilters?: Record<string, any>) => {
     setIsFiltering(true);
     try {
-      // If formatted filters are provided directly, use them
-      // Otherwise use our current filters state
       const filtersToApply = formattedFilters || {
         jobType: filters.jobType,
         experienceLevel: filters.experienceLevel,
@@ -254,14 +251,12 @@ const JobSwipe = () => {
                 </Button>
               </div>
               <div className="p-4 space-y-5">
-                {/* Replace with our new JobFilters component */}
                 <JobFilters 
                   onFilterChange={handleJobFiltersChange} 
                   onApplyFilters={applyJobFilters}
                   isFiltering={isFiltering}
                 />
                 
-                {/* Keep the location search input separate */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Location</label>
                   <div className="relative">
@@ -414,7 +409,7 @@ const JobSwipe = () => {
                         Configure your AI-powered job agent to automatically find and apply to matching jobs.
                       </DialogDescription>
                     </DialogHeader>
-                    <JobAgentConfig onClose={() => setShowAgentConfig(false)} />
+                    <JobAgentConfigDialog onClose={() => setShowAgentConfig(false)} />
                   </DialogContent>
                 </Dialog>
               </div>
