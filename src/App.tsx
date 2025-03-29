@@ -40,6 +40,7 @@ function AppRoutes() {
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      <Toaster />
     </>
   );
 }
@@ -50,7 +51,6 @@ function App() {
       <Router>
         <AuthProvider>
           <AppRoutes />
-          <Toaster />
         </AuthProvider>
       </Router>
     </ErrorBoundary>
