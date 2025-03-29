@@ -7,8 +7,7 @@ import { useNavigate } from "react-router-dom";
 // Simple toast implementation to avoid circular dependencies
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   console.log(`Toast (${type}):`, message);
-  // We'll use this simple implementation temporarily
-  // and let the Toaster component handle the actual UI
+  // We'll use this simple implementation that doesn't depend on the toast component
 };
 
 interface AuthContextType {
@@ -72,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithEmail = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const { error, data } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });

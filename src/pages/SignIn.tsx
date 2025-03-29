@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 const SignIn = () => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(''); // Added password state
+  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [otp, setOtp] = useState('');
   const [showOtpInput, setShowOtpInput] = useState(false);
@@ -19,7 +19,7 @@ const SignIn = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) { // Check for both email and password
+    if (!email || !password) {
       toast({
         title: "Required fields missing",
         description: "Please enter your email and password",

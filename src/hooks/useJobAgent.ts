@@ -16,6 +16,11 @@ interface UseJobAgentReturn {
   updateConfig: (newConfig: any) => Promise<void>;
 }
 
+interface JobAgentToggleResult {
+  is_active: boolean;
+  message: string;
+}
+
 export const useJobAgent = (): UseJobAgentReturn => {
   const [isActive, setIsActive] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,11 +84,8 @@ export const useJobAgent = (): UseJobAgentReturn => {
 
       if (error) throw error;
 
-      // Handle the JSON data properly by casting it to the expected type
-      const result = data as {
-        is_active: boolean;
-        message: string;
-      };
+      // Handle the data properly by casting it to the expected type
+      const result = data as JobAgentToggleResult;
 
       setIsActive(result.is_active);
       setConfig(prev => ({ ...prev, is_active: result.is_active }));
@@ -191,12 +193,25 @@ export const useJobAgent = (): UseJobAgentReturn => {
       const userResume = userResumes && userResumes.length > 0 ? userResumes[0] : null;
       if (!userResume || !userResume.skills) return 0;
 
-      // Ensure skills is treated as an array by casting it
-      const skills = Array.isArray(userResume.skills) ? userResume.skills : [];
+      // Handle different possible types for skills
+      let skills: any[] = [];
+      if (typeof userResume.skills === 'string') {
+        try {
+          skills = JSON.parse(userResume.skills);
+        } catch (e) {
+          console.error('Failed to parse skills string:', e);
+          return 0;
+        }
+      } else if (Array.isArray(userResume.skills)) {
+        skills = userResume.skills;
+      } else {
+        console.error('Unknown skills format:', userResume.skills);
+        return 0;
+      }
       
       // Extract skills from job requirements
       const jobSkills = job.requirements.map(req => req.toLowerCase());
-      const userSkills = skills.map((skill: any) => skill.name.toLowerCase());
+      const userSkills = skills.map((skill: any) => (typeof skill === 'string' ? skill : skill.name || '').toLowerCase());
 
       // Calculate match percentage
       const matchingSkills = userSkills.filter(skill => 
@@ -223,13 +238,16 @@ export const useJobAgent = (): UseJobAgentReturn => {
 
       if (!agentConfig || !agentConfig.auto_apply_preferences) return false;
 
-      // Cast the preferences to the expected type to avoid type errors
-      const preferences = agentConfig.auto_apply_preferences as {
-        skills_match_threshold?: number;
-        location_preference?: string;
-        apply_on_swipe_right?: boolean;
-        max_daily_applications?: number;
-      };
+      // Parse preferences if needed
+      let preferences: any = agentConfig.auto_apply_preferences;
+      if (typeof preferences === 'string') {
+        try {
+          preferences = JSON.parse(preferences);
+        } catch (e) {
+          console.error('Failed to parse preferences:', e);
+          return false;
+        }
+      }
       
       // Check skills match threshold
       const skillsMatch = await getSkillsMatchPercentage(job);
