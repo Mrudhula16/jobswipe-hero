@@ -1,176 +1,87 @@
 
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { 
-  ThumbsUp, ThumbsDown, Undo2, RotateCcw, 
-  Share2, ExternalLink, CheckCircle, Bot
-} from "lucide-react";
-import { useJobAgent } from "@/hooks/useJobAgent";
-import { useToast } from "@/hooks/use-toast";
-import { Job } from "@/services/jobService";
-import { motion } from "framer-motion";
+import { Button } from '@/components/ui/button';
+import { ThumbsUp, ThumbsDown, ArrowLeft, Bot, Zap } from 'lucide-react';
+import { Job } from '@/services/jobService';
 
 interface JobCardActionsProps {
   job: Job;
-  onSwipe: (direction: "left" | "right") => void;
-  onUndo: () => void;
-  canUndo: boolean;
+  onSwipe: (direction: 'left' | 'right') => void;
+  onUndo?: () => void;
+  canUndo?: boolean;
   matchScore?: number;
   shouldAutoApply?: boolean;
 }
 
-const JobCardActions = ({ 
-  job, 
-  onSwipe, 
-  onUndo, 
-  canUndo, 
-  matchScore, 
-  shouldAutoApply 
-}: JobCardActionsProps) => {
-  const { toast } = useToast();
-  const { isActive } = useJobAgent();
-  
-  const handleShare = () => {
-    if (navigator.share && job.url) {
-      navigator.share({
-        title: `${job.title} at ${job.company}`,
-        text: `Check out this job: ${job.title} at ${job.company}`,
-        url: job.url
-      }).catch(error => {
-        console.error('Error sharing:', error);
-        copyToClipboard();
-      });
-    } else {
-      copyToClipboard();
-    }
-  };
-  
-  const copyToClipboard = () => {
-    if (job.url) {
-      navigator.clipboard.writeText(job.url);
-      toast({
-        title: "Link Copied",
-        description: "Job link copied to clipboard",
-      });
-    }
-  };
-  
-  const openJobLink = () => {
-    if (job.url) {
-      window.open(job.url, '_blank');
-    }
-  };
-
+const JobCardActions: React.FC<JobCardActionsProps> = ({
+  job,
+  onSwipe,
+  onUndo,
+  canUndo = false,
+  matchScore,
+  shouldAutoApply = false
+}) => {
   return (
-    <Card className="bg-background border-none shadow-none">
-      <CardContent className="p-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center">
-            {matchScore !== undefined && (
-              <div className={`px-2 py-1 rounded-full text-xs font-medium mr-2 ${
-                matchScore >= 80 ? "bg-green-500/10 text-green-600" :
-                matchScore >= 60 ? "bg-amber-500/10 text-amber-600" :
-                "bg-gray-200 text-gray-700"
-              }`}>
-                {matchScore}% match
-              </div>
-            )}
-            
-            {shouldAutoApply && isActive && (
-              <div className="px-2 py-1 rounded-full bg-blue-500/10 text-blue-600 text-xs font-medium flex items-center">
-                <Bot className="w-3 h-3 mr-1" />
-                Auto-apply
-              </div>
-            )}
-          </div>
+    <div className="p-4 bg-card rounded-xl border border-border shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          {matchScore !== undefined && matchScore > 0 && (
+            <div className={`px-2 py-1 rounded-md text-xs ${
+              matchScore >= 80 ? 'bg-green-100 text-green-800' : 
+              matchScore >= 60 ? 'bg-amber-100 text-amber-800' :
+              'bg-gray-100 text-gray-800'
+            }`}>
+              <span className="font-medium">{matchScore}%</span> Match
+            </div>
+          )}
           
-          <div className="flex items-center gap-1">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="rounded-full" 
-              onClick={handleShare}
-            >
-              <Share2 className="h-4 w-4" />
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="rounded-full" 
-              onClick={openJobLink}
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          </div>
+          {shouldAutoApply && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-purple-100 text-purple-800 text-xs">
+              <Bot className="h-3 w-3" />
+              <span>Auto-Apply Ready</span>
+            </div>
+          )}
+          
+          {!shouldAutoApply && matchScore !== undefined && matchScore < 60 && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-100 text-orange-800 text-xs">
+              <Zap className="h-3 w-3" />
+              <span>Low Match</span>
+            </div>
+          )}
         </div>
         
-        <div className="flex justify-between mt-3">
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Button 
-              variant="outline" 
-              className="rounded-full px-6 border-2 border-red-500 text-red-500 hover:bg-red-50 hover:text-red-600" 
-              onClick={() => onSwipe("left")}
-            >
-              <ThumbsDown className="h-5 w-5 mr-1" />
-              Pass
-            </Button>
-          </motion.div>
-          
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Button 
-              variant="outline" 
-              className="rounded-full px-6 border-2 border-green-500 text-green-500 hover:bg-green-50 hover:text-green-600" 
-              onClick={() => onSwipe("right")}
-            >
-              {shouldAutoApply && isActive ? (
-                <>
-                  <Bot className="h-5 w-5 mr-1" />
-                  Auto-Apply
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-5 w-5 mr-1" />
-                  Apply
-                </>
-              )}
-            </Button>
-          </motion.div>
-        </div>
-        
-        <div className="flex justify-center mt-3">
+        {canUndo && onUndo && (
           <Button 
             variant="ghost" 
             size="sm" 
-            className="text-muted-foreground" 
+            className="h-8 text-xs" 
             onClick={onUndo}
-            disabled={!canUndo}
           >
-            <Undo2 className="h-4 w-4 mr-1" />
+            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
             Undo
           </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-muted-foreground"
-            onClick={() => {
-              window.location.reload();
-            }}
-          >
-            <RotateCcw className="h-4 w-4 mr-1" />
-            Refresh
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        )}
+      </div>
+      
+      <div className="flex gap-2">
+        <Button 
+          variant="outline" 
+          className="flex-1 border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600"
+          onClick={() => onSwipe('left')}
+        >
+          <ThumbsDown className="h-4 w-4 mr-2" />
+          Pass
+        </Button>
+        
+        <Button 
+          className="flex-1 bg-green-600 text-white hover:bg-green-700"
+          onClick={() => onSwipe('right')}
+        >
+          <ThumbsUp className="h-4 w-4 mr-2" />
+          {shouldAutoApply ? 'Apply' : 'Interested'}
+        </Button>
+      </div>
+    </div>
   );
 };
 

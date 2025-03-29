@@ -1,418 +1,176 @@
 
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useJobAgent, AutoApplyPreferences } from "@/hooks/useJobAgent";
-import { Settings, Server, Database, File, Shield } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useJobAgent } from '@/hooks/useJobAgent';
+import { Bot, Settings, Zap, MapPin, BriefcaseIcon, Clock } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 interface JobAgentConfigProps {
   onClose?: () => void;
 }
 
-interface Resume {
-  id: string;
-  title: string;
-}
-
 const JobAgentConfig = ({ onClose }: JobAgentConfigProps) => {
-  const { isActive, isLoading, toggleJobAgent, setMLParameters, agentConfig } = useJobAgent();
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const [endpointUrl, setEndpointUrl] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [enableRealTime, setEnableRealTime] = useState(true);
-  const [enableActions, setEnableActions] = useState(true);
-  const [applyOnSwipeRight, setApplyOnSwipeRight] = useState(true);
+  const { isActive, isLoading, config, toggleJobAgent, updateConfig } = useJobAgent();
+  
   const [skillsMatchThreshold, setSkillsMatchThreshold] = useState(60);
-  const [selectedResumeId, setSelectedResumeId] = useState<string>("");
-  const [resumes, setResumes] = useState<Resume[]>([]);
-  const [locationPreference, setLocationPreference] = useState("remote");
+  const [locationPreference, setLocationPreference] = useState('remote');
+  const [applyOnSwipeRight, setApplyOnSwipeRight] = useState(true);
   const [maxDailyApplications, setMaxDailyApplications] = useState(10);
-  const [loadingResumes, setLoadingResumes] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      fetchResumes();
-      fetchCurrentConfig();
+    if (config && config.auto_apply_preferences) {
+      const prefs = config.auto_apply_preferences;
+      setSkillsMatchThreshold(prefs.skills_match_threshold || 60);
+      setLocationPreference(prefs.location_preference || 'remote');
+      setApplyOnSwipeRight(prefs.apply_on_swipe_right !== false);
+      setMaxDailyApplications(prefs.max_daily_applications || 10);
     }
-  }, [user, agentConfig]);
+  }, [config]);
 
-  const fetchResumes = async () => {
+  const handleSave = async () => {
+    setIsSaving(true);
     try {
-      setLoadingResumes(true);
-      const { data, error } = await supabase
-        .from('resumes')
-        .select('id, title')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setResumes(data || []);
-    } catch (error) {
-      console.error("Error fetching resumes:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load your resumes.",
-        variant: "destructive"
+      await updateConfig({
+        is_active: isActive,
+        auto_apply_preferences: {
+          skills_match_threshold: skillsMatchThreshold,
+          location_preference: locationPreference,
+          apply_on_swipe_right: applyOnSwipeRight,
+          max_daily_applications: maxDailyApplications
+        }
       });
-    } finally {
-      setLoadingResumes(false);
-    }
-  };
-
-  const fetchCurrentConfig = async () => {
-    try {
-      // Use the config from the hook if available
-      if (agentConfig) {
-        setSelectedResumeId(agentConfig.resume_id || "");
-        
-        if (agentConfig.auto_apply_preferences) {
-          const prefs = agentConfig.auto_apply_preferences;
-          setApplyOnSwipeRight(prefs.apply_on_swipe_right);
-          setSkillsMatchThreshold(prefs.skills_match_threshold);
-          setLocationPreference(prefs.location_preference);
-          setMaxDailyApplications(prefs.max_daily_applications);
-        }
-        
-        if (agentConfig.ml_parameters) {
-          const mlParams = agentConfig.ml_parameters as Record<string, any>;
-          setEndpointUrl(mlParams.endpoint_url || "");
-          setApiKey(mlParams.api_key || "");
-          
-          if (mlParams.preferences) {
-            setEnableRealTime(mlParams.preferences.enable_real_time !== false);
-            setEnableActions(mlParams.preferences.enable_auto_actions !== false);
-          }
-        }
-      } else {
-        // Fetch directly from Supabase if hook data is not available
-        const { data, error } = await supabase
-          .from('job_agent_configs')
-          .select('*')
-          .eq('user_id', user?.id)
-          .single();
-
-        if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
-
-        if (data) {
-          // Set form values from saved configuration
-          setSelectedResumeId(data.resume_id || "");
-          
-          if (data.auto_apply_preferences && typeof data.auto_apply_preferences === 'object') {
-            const prefs = data.auto_apply_preferences as Record<string, any>;
-            setApplyOnSwipeRight(Boolean(prefs.apply_on_swipe_right ?? true));
-            setSkillsMatchThreshold(Number(prefs.skills_match_threshold ?? 60));
-            setLocationPreference(String(prefs.location_preference ?? "remote"));
-            setMaxDailyApplications(Number(prefs.max_daily_applications ?? 10));
-          }
-          
-          if (data.ml_parameters && typeof data.ml_parameters === 'object') {
-            const mlParams = data.ml_parameters as Record<string, any>;
-            setEndpointUrl(String(mlParams.endpoint_url ?? ""));
-            setApiKey(String(mlParams.api_key ?? ""));
-            
-            if (mlParams.preferences && typeof mlParams.preferences === 'object') {
-              const prefs = mlParams.preferences as Record<string, any>;
-              setEnableRealTime(Boolean(prefs.enable_real_time ?? true));
-              setEnableActions(Boolean(prefs.enable_auto_actions ?? true));
-            }
-          }
-        }
+      
+      if (onClose) {
+        onClose();
       }
     } catch (error) {
-      console.error("Error fetching agent config:", error);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      // First update the ML parameters
-      await setMLParameters({
-        model_type: "custom",
-        endpoint_url: endpointUrl,
-        api_key: apiKey,
-        preferences: {
-          enable_real_time: enableRealTime,
-          enable_auto_actions: enableActions
-        }
-      });
-      
-      // Then update the agent config with resume and preferences
-      const autoApplyPrefs: AutoApplyPreferences = {
-        apply_on_swipe_right: applyOnSwipeRight,
-        skills_match_threshold: skillsMatchThreshold,
-        location_preference: locationPreference,
-        max_daily_applications: maxDailyApplications
-      };
-      
-      const { error } = await supabase
-        .from('job_agent_configs')
-        .upsert({
-          user_id: user?.id,
-          resume_id: selectedResumeId,
-          auto_apply_preferences: autoApplyPrefs as any // Cast to any to fix type error
-        });
-      
-      if (error) throw error;
-      
+      console.error('Error saving configuration:', error);
       toast({
-        title: "Configuration Saved",
-        description: "Your job agent settings have been updated successfully.",
+        title: 'Save Failed',
+        description: 'There was an error saving your configuration',
+        variant: 'destructive'
       });
-      
-      if (onClose) onClose();
-    } catch (error) {
-      console.error("Error saving ML configuration:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save configuration. Please try again.",
-        variant: "destructive"
-      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Server className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-medium">Job Agent Status</h3>
-          </div>
-          <Button
-            onClick={toggleJobAgent}
-            variant={isActive ? "destructive" : "default"}
-            size="sm"
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Switch 
+            id="agent-active"
+            checked={isActive}
+            onCheckedChange={toggleJobAgent}
             disabled={isLoading}
-          >
-            {isLoading ? "Updating..." : isActive ? "Deactivate" : "Activate"}
-          </Button>
+          />
+          <Label htmlFor="agent-active" className="text-base font-medium">
+            {isActive ? 'Agent Active' : 'Agent Inactive'}
+          </Label>
         </div>
-        <p className="text-sm text-muted-foreground">
-          {isActive 
-            ? "Your Job Agent is active and will automatically apply to matching jobs."
-            : "Activate the Job Agent to automatically apply to jobs that match your profile."}
-        </p>
-      </div>
-
-      <div className="space-y-2 pt-4">
-        <div className="flex items-center gap-2">
-          <File className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-medium">Resume Selection</h3>
+        <div className={`px-2 py-1 rounded-full text-xs ${isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+          {isActive ? 'Enabled' : 'Disabled'}
         </div>
-        <p className="text-sm text-muted-foreground">
-          Select which resume the AI agent should use when applying to jobs.
-        </p>
       </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+      
+      <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="resume-select">Select Resume</Label>
-          <Select
-            value={selectedResumeId}
-            onValueChange={setSelectedResumeId}
-            disabled={loadingResumes || resumes.length === 0}
-          >
-            <SelectTrigger id="resume-select">
-              <SelectValue placeholder="Select a resume" />
-            </SelectTrigger>
-            <SelectContent>
-              {resumes.map((resume) => (
-                <SelectItem key={resume.id} value={resume.id}>
-                  {resume.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {resumes.length === 0 && (
-            <p className="text-xs text-amber-500">
-              You need to create at least one resume before activating the job agent.
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2 pt-4">
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-medium">Application Preferences</h3>
+          <Label className="text-sm font-medium flex items-center gap-2">
+            <Zap className="h-4 w-4" />
+            Skills Match Threshold
+          </Label>
+          <div className="flex items-center gap-4">
+            <Slider
+              value={[skillsMatchThreshold]}
+              onValueChange={(values) => setSkillsMatchThreshold(values[0])}
+              min={0}
+              max={100}
+              step={5}
+              className="flex-1"
+            />
+            <span className="text-sm font-medium bg-secondary px-2 py-1 rounded w-12 text-center">
+              {skillsMatchThreshold}%
+            </span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Configure how the AI agent should apply to jobs on your behalf.
+          <p className="text-xs text-muted-foreground">
+            Minimum skills match percentage required for auto-applying
           </p>
         </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="swipe-right">Apply on Swipe Right</Label>
-              <p className="text-xs text-muted-foreground">
-                Automatically apply when you swipe right on a job
-              </p>
-            </div>
-            <Switch
-              id="swipe-right"
+        
+        <div className="space-y-2">
+          <Label className="text-sm font-medium flex items-center gap-2">
+            <MapPin className="h-4 w-4" />
+            Location Preference
+          </Label>
+          <Select
+            value={locationPreference}
+            onValueChange={setLocationPreference}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select location preference" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="remote">Remote Only</SelectItem>
+              <SelectItem value="hybrid">Hybrid Preferred</SelectItem>
+              <SelectItem value="onsite">Onsite Acceptable</SelectItem>
+              <SelectItem value="any">Any Location</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="space-y-2">
+          <Label className="text-sm font-medium flex items-center gap-2">
+            <BriefcaseIcon className="h-4 w-4" />
+            Apply on Swipe Right
+          </Label>
+          <div className="flex items-center space-x-2">
+            <Switch 
+              id="auto-apply"
               checked={applyOnSwipeRight}
               onCheckedChange={setApplyOnSwipeRight}
             />
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label htmlFor="skills-threshold">Skills Match Threshold</Label>
-              <span className="text-sm">{skillsMatchThreshold}%</span>
-            </div>
-            <Slider
-              id="skills-threshold"
-              min={30}
-              max={100}
-              step={5}
-              value={[skillsMatchThreshold]}
-              onValueChange={(value) => setSkillsMatchThreshold(value[0])}
-            />
-            <p className="text-xs text-muted-foreground">
-              Minimum skills match percentage required for automatic application
-            </p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="location-pref">Location Preference</Label>
-            <Select value={locationPreference} onValueChange={setLocationPreference}>
-              <SelectTrigger id="location-pref">
-                <SelectValue placeholder="Select location preference" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="remote">Remote Only</SelectItem>
-                <SelectItem value="hybrid">Hybrid Preferred</SelectItem>
-                <SelectItem value="onsite">On-site Acceptable</SelectItem>
-                <SelectItem value="any">Any Location</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label htmlFor="max-applications">Max Daily Applications</Label>
-              <span className="text-sm">{maxDailyApplications}</span>
-            </div>
-            <Slider
-              id="max-applications"
-              min={1}
-              max={50}
-              step={1}
-              value={[maxDailyApplications]}
-              onValueChange={(value) => setMaxDailyApplications(value[0])}
-            />
-            <p className="text-xs text-muted-foreground">
-              Maximum number of applications the agent will submit per day
-            </p>
+            <Label htmlFor="auto-apply">
+              {applyOnSwipeRight ? 'Automatically apply when you swipe right' : 'Just save jobs when you swipe right'}
+            </Label>
           </div>
         </div>
-
-        <div className="space-y-2 pt-4">
-          <div className="flex items-center gap-2">
-            <Database className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-medium">ML Model Configuration</h3>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Configure your custom ML model integration for the Job Agent.
-          </p>
-        </div>
-
+        
         <div className="space-y-2">
-          <Label htmlFor="endpoint-url">ML Model Endpoint URL</Label>
+          <Label className="text-sm font-medium flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Maximum Daily Applications
+          </Label>
           <Input
-            id="endpoint-url"
-            placeholder="https://your-ml-model-endpoint.com/api"
-            value={endpointUrl}
-            onChange={(e) => setEndpointUrl(e.target.value)}
+            type="number"
+            value={maxDailyApplications}
+            onChange={(e) => setMaxDailyApplications(parseInt(e.target.value) || 10)}
+            min={1}
+            max={50}
           />
           <p className="text-xs text-muted-foreground">
-            The endpoint where your ML model is hosted.
+            Limit how many jobs the agent can apply to per day
           </p>
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="api-key">API Key (Optional)</Label>
-          <Input
-            id="api-key"
-            type="password"
-            placeholder="Your API key"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            If your ML model requires authentication, provide the API key.
-          </p>
-        </div>
-
-        <div className="space-y-3 pt-2">
-          <h4 className="text-sm font-medium">Preferences</h4>
-          
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="real-time">Real-time Processing</Label>
-              <p className="text-xs text-muted-foreground">
-                Process jobs as soon as they are posted
-              </p>
-            </div>
-            <Switch
-              id="real-time"
-              checked={enableRealTime}
-              onCheckedChange={setEnableRealTime}
-            />
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="auto-actions">Automatic Actions</Label>
-              <p className="text-xs text-muted-foreground">
-                Allow the agent to apply to jobs automatically
-              </p>
-            </div>
-            <Switch
-              id="auto-actions"
-              checked={enableActions}
-              onCheckedChange={setEnableActions}
-            />
-          </div>
-        </div>
-
-        <DialogFooter className="pt-4">
-          <Button type="submit">Save Configuration</Button>
-        </DialogFooter>
-      </form>
-    </div>
-  );
-};
-
-export const JobAgentConfigDialog = () => {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full">
-          <Settings className="h-4 w-4 mr-2" />
-          Configure Job Agent
+      </div>
+      
+      <div className="flex justify-end gap-2">
+        {onClose && (
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+            Cancel
+          </Button>
+        )}
+        <Button onClick={handleSave} disabled={isSaving || isLoading}>
+          {isSaving ? 'Saving...' : 'Save Configuration'}
         </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Job Agent Configuration</DialogTitle>
-          <DialogDescription>
-            Configure your AI-powered job agent to automatically find and apply to matching jobs.
-          </DialogDescription>
-        </DialogHeader>
-        <JobAgentConfig />
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };
 

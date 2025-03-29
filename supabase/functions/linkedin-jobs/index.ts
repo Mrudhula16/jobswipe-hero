@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const linkedinApiKey = Deno.env.get("LINKEDIN_API_KEY") || "";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,36 +32,35 @@ serve(async (req) => {
     // Log filters if present
     if (Object.keys(filters).length > 0) {
       console.log('Filters applied:', filters);
-    } else {
-      console.log('Filters applied: none');
     }
     
     // Initialize Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
     
     try {
-      console.log(`Fetching LinkedIn jobs for query: ${query}, location: ${location}, count: ${count}`);
+      // Build filter query for LinkedIn API
+      const filterParams = buildLinkedInFilterParams(filters);
       
-      // In a real implementation, you would:
-      // 1. Call LinkedIn API with the query, location, and filters
-      // 2. Transform the response to our Job format
-      // 3. Return the results
+      // Try to fetch real jobs from LinkedIn
+      // This would use real LinkedIn API if API key is available
+      const linkedInJobs = await fetchJobsFromLinkedIn(query, location, count, filterParams, lastJobId);
       
-      // For now, let's simulate the LinkedIn API response
-      const linkedInJobs = await fetchLinkedInJobs(query, location, filters);
-      
-      if (linkedInJobs.length === 0) {
-        console.log("No jobs found in LinkedIn API response, falling back to simulated data");
-        // Generate simulated data if no jobs are found
-        const simulatedJobs = generateSimulatedJobs(query, location, count);
+      if (linkedInJobs.length > 0) {
+        // Store jobs in database for future reference
+        await storeJobsInDatabase(supabase, linkedInJobs);
+        
         return new Response(
-          JSON.stringify({ jobs: simulatedJobs }),
+          JSON.stringify({ jobs: linkedInJobs }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
+      // If no jobs found or API not available, generate simulated data
+      console.log("No jobs found in LinkedIn API response, falling back to simulated data");
+      const simulatedJobs = generateSimulatedJobs(query, location, count, filters);
+      
       return new Response(
-        JSON.stringify({ jobs: linkedInJobs }),
+        JSON.stringify({ jobs: simulatedJobs }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (apiError) {
@@ -68,7 +68,7 @@ serve(async (req) => {
       
       // Generate simulated data as fallback
       console.log(`Generating ${count} simulated LinkedIn jobs for query: ${query}, location: ${location}`);
-      const simulatedJobs = generateSimulatedJobs(query, location, count);
+      const simulatedJobs = generateSimulatedJobs(query, location, count, filters);
       
       return new Response(
         JSON.stringify({ jobs: simulatedJobs }),
@@ -84,15 +84,87 @@ serve(async (req) => {
   }
 });
 
-// Simulated function to fetch LinkedIn jobs
-async function fetchLinkedInJobs(query, location, filters) {
-  // In a production environment, you would use the LinkedIn API here
-  // For now, return an empty array to trigger our fallback
-  return [];
+// Build LinkedIn API filter parameters
+function buildLinkedInFilterParams(filters: any) {
+  const params = new URLSearchParams();
+  
+  if (filters.jobType?.length > 0) {
+    params.append('f_JT', filters.jobType[0]);
+  }
+  
+  if (filters.experienceLevel?.length > 0) {
+    params.append('f_E', filters.experienceLevel[0]);
+  }
+  
+  if (filters.datePosted?.length > 0) {
+    params.append('f_TPR', filters.datePosted[0]);
+  }
+  
+  if (filters.salary) {
+    params.append('f_SB', filters.salary);
+  }
+  
+  return params.toString();
+}
+
+// Function to fetch jobs from LinkedIn API (would use real API in production)
+async function fetchJobsFromLinkedIn(query: string, location: string, count: number, filters: string, lastJobId?: string) {
+  // If LinkedIn API key is not set, return empty array to trigger fallback
+  if (!linkedinApiKey) {
+    return [];
+  }
+  
+  try {
+    // This would be implemented with the actual LinkedIn API
+    // For now, return empty array to trigger the fallback
+    return [];
+  } catch (error) {
+    console.error("LinkedIn API error:", error);
+    return [];
+  }
+}
+
+// Store jobs in Supabase database for future reference
+async function storeJobsInDatabase(supabase: any, jobs: any[]) {
+  try {
+    for (const job of jobs) {
+      // Check if job already exists
+      const { data: existingJobs } = await supabase
+        .from('jobs')
+        .select('id')
+        .eq('title', job.title)
+        .eq('company', job.company)
+        .limit(1);
+      
+      // Skip if job exists
+      if (existingJobs && existingJobs.length > 0) {
+        continue;
+      }
+      
+      // Convert job object to database format
+      const dbJob = {
+        title: job.title,
+        company: job.company,
+        location: job.location,
+        salary: job.salary,
+        description: job.description,
+        requirements: job.requirements,
+        type: job.type,
+        logo: job.logo,
+        is_new: job.isNew,
+        posted: job.posted
+      };
+      
+      // Insert job
+      await supabase.from('jobs').insert([dbJob]);
+    }
+  } catch (error) {
+    console.error("Error storing jobs in database:", error);
+  }
 }
 
 // Generate simulated LinkedIn job listings
-function generateSimulatedJobs(query, location, count) {
+function generateSimulatedJobs(query: string, location: string, count: number, filters: any) {
   const companies = [
     { name: "Google", logo: "https://logo.clearbit.com/google.com" },
     { name: "Microsoft", logo: "https://logo.clearbit.com/microsoft.com" },
@@ -106,7 +178,8 @@ function generateSimulatedJobs(query, location, count) {
     { name: "LinkedIn", logo: "https://logo.clearbit.com/linkedin.com" }
   ];
   
-  const jobTitles = [
+  // Filter job titles based on query
+  let jobTitles = [
     "Software Engineer", 
     "Senior Developer", 
     "Product Manager", 
@@ -119,6 +192,16 @@ function generateSimulatedJobs(query, location, count) {
     "Machine Learning Engineer"
   ];
   
+  if (query) {
+    jobTitles = jobTitles.filter(title => 
+      title.toLowerCase().includes(query.toLowerCase())
+    );
+    if (jobTitles.length === 0) {
+      jobTitles = ["Software Engineer"]; // Default if no matches
+    }
+  }
+  
+  // Handle location filtering
   const locations = location ? [location] : [
     "San Francisco, CA", 
     "New York, NY", 
@@ -127,114 +210,59 @@ function generateSimulatedJobs(query, location, count) {
     "Remote",
     "Boston, MA",
     "Chicago, IL",
-    "Los Angeles, CA",
-    "Denver, CO",
-    "Atlanta, GA"
+    "Los Angeles, CA"
   ];
   
-  const jobTypes = [
-    "Full-time", 
-    "Part-time", 
-    "Contract", 
-    "Remote", 
-    "Hybrid"
-  ];
-  
-  const salaryRanges = [
-    "$80,000 - $100,000",
-    "$100,000 - $130,000",
-    "$130,000 - $160,000",
-    "$160,000 - $200,000",
-    "$200,000+"
-  ];
+  // Apply filters from request
+  const jobTypes = filters.jobType?.length > 0 
+    ? filters.jobType.map((t: string) => t.charAt(0).toUpperCase() + t.slice(1))
+    : ["Full-time", "Part-time", "Contract", "Remote", "Hybrid"];
   
   const simulatedJobs = [];
   
-  // For pagination simulation, use the following array to ensure consistent IDs
-  const jobIds = [
-    "11b3abcd-1234-5678-90ab-cdef01234567",
-    "22b3abcd-1234-5678-90ab-cdef01234567",
-    "33b3abcd-1234-5678-90ab-cdef01234567",
-    "44b3abcd-1234-5678-90ab-cdef01234567",
-    "55b3abcd-1234-5678-90ab-cdef01234567",
-    "66b3abcd-1234-5678-90ab-cdef01234567",
-    "77b3abcd-1234-5678-90ab-cdef01234567",
-    "88b3abcd-1234-5678-90ab-cdef01234567",
-    "99b3abcd-1234-5678-90ab-cdef01234567",
-    "10b3abcd-1234-5678-90ab-cdef01234567",
-    "11c3abcd-1234-5678-90ab-cdef01234567",
-    "12c3abcd-1234-5678-90ab-cdef01234567",
-    "13c3abcd-1234-5678-90ab-cdef01234567",
-    "14c3abcd-1234-5678-90ab-cdef01234567",
-    "15c3abcd-1234-5678-90ab-cdef01234567",
-  ];
-  
   for (let i = 0; i < count; i++) {
     const company = companies[Math.floor(Math.random() * companies.length)];
-    const title = query || jobTitles[Math.floor(Math.random() * jobTitles.length)];
+    const title = jobTitles[Math.floor(Math.random() * jobTitles.length)];
     const jobLocation = locations[Math.floor(Math.random() * locations.length)];
     const jobType = jobTypes[Math.floor(Math.random() * jobTypes.length)];
-    const salaryRange = salaryRanges[Math.floor(Math.random() * salaryRanges.length)];
     
-    // Calculate a date within the last 30 days
+    // Generate salary based on job title
+    let salary;
+    if (title.includes("Senior") || title.includes("Lead")) {
+      salary = "$120,000 - $180,000";
+    } else if (title.includes("Engineer") || title.includes("Developer")) {
+      salary = "$90,000 - $140,000";
+    } else {
+      salary = "$70,000 - $110,000";
+    }
+    
+    // Calculate posting date (random within last 30 days)
     const postedDate = new Date();
     postedDate.setDate(postedDate.getDate() - Math.floor(Math.random() * 30));
     
-    const isNew = (new Date().getTime() - postedDate.getTime()) / (1000 * 3600 * 24) < 3; // Is it less than 3 days old?
+    // Determine if job is "new" (posted in last 3 days)
+    const isNew = (new Date().getTime() - postedDate.getTime()) / (1000 * 3600 * 24) < 3;
     
-    // Generate LinkedIn application URL
-    const jobSlug = title.toLowerCase().replace(/\s+/g, '-');
-    const companySlug = company.name.toLowerCase().replace(/\s+/g, '-');
-    const applicationUrl = `https://www.linkedin.com/jobs/view/${companySlug}-${jobSlug}-${Math.floor(Math.random() * 1000000)}`;
+    // Generate random requirements based on job title
+    const requirements = ["JavaScript", "React", "Node.js", "TypeScript", "CSS", "HTML", "SQL", "Git"];
+    if (title.includes("Backend")) {
+      requirements.push("Express", "MongoDB", "PostgreSQL", "API Design");
+    } else if (title.includes("Frontend")) {
+      requirements.push("CSS-in-JS", "Webpack", "Redux", "UI/UX");
+    } else if (title.includes("Full Stack")) {
+      requirements.push("Express", "MongoDB", "Redux", "REST APIs");
+    }
     
-    // Generate random requirements
-    const requirements = [
-      "Bachelor's degree in Computer Science or related field",
-      "3+ years of professional software development experience",
-      "Proficiency in JavaScript and TypeScript",
-      "Experience with React and modern frontend frameworks",
-      "Strong problem-solving skills",
-      "Excellent communication and teamwork abilities"
-    ];
-    
-    // Generate a detailed job description
-    const description = `
-${company.name} is seeking a talented ${title} to join our team. This is an exciting opportunity to work on cutting-edge technology that impacts millions of users worldwide.
-
-As a ${title} at ${company.name}, you will be responsible for designing, developing, and maintaining high-quality software solutions. You will collaborate with cross-functional teams to deliver innovative products and features.
-
-Key Responsibilities:
-- Design and implement robust, scalable, and maintainable code
-- Collaborate with product managers, designers, and other engineers
-- Participate in code reviews and technical discussions
-- Debug and fix issues in existing applications
-- Write automated tests to ensure code quality
-
-Requirements:
-- ${requirements[0]}
-- ${requirements[1]}
-- ${requirements[2]}
-- ${requirements[3]}
-- ${requirements[4]}
-- ${requirements[5]}
-
-We offer:
-- Competitive salary (${salaryRange})
-- Comprehensive benefits package
-- Flexible work arrangements
-- Professional development opportunities
-- Collaborative and innovative work environment
-
-${company.name} is an equal opportunity employer. We celebrate diversity and are committed to creating an inclusive environment for all employees.
-`;
+    // Generate application URL
+    const applicationUrl = `https://www.linkedin.com/jobs/view/${i}-${title.toLowerCase().replace(/\s+/g, '-')}`;
     
     simulatedJobs.push({
-      id: jobIds[i % jobIds.length], // Use consistent IDs for pagination simulation
+      id: `linkedin-job-${Date.now()}-${i}`,
       title,
       company: company.name,
       location: jobLocation,
-      salary: salaryRange,
-      description,
+      salary,
+      description: `We are looking for a talented ${title} to join our team at ${company.name}. This is a ${jobType.toLowerCase()} position where you will be working on exciting projects with cutting-edge technologies.`,
       requirements,
       posted: postedDate.toISOString(),
       type: jobType,
@@ -243,7 +271,7 @@ ${company.name} is an equal opportunity employer. We celebrate diversity and are
       url: applicationUrl,
       applicationUrl,
       source: "linkedin",
-      sourceId: `linkedin-${Math.floor(Math.random() * 1000000)}`
+      sourceId: `linkedin-job-${Date.now()}-${i}`
     });
   }
   

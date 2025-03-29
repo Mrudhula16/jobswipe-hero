@@ -1,5 +1,5 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -15,58 +15,100 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-  
+
   try {
-    const { jobDetails, userId, applicationId, resumeId } = await req.json();
-    console.log(`Processing auto-apply request for job: ${jobDetails.title} at ${jobDetails.company}`);
+    const { action, jobDetails, userId } = await req.json();
     
-    if (!userId) {
-      throw new Error("User ID is required");
+    if (!action || !jobDetails || !userId) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required parameters' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
     
     // Initialize Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
     
-    // Verify the user exists
-    const { data: userData, error: userError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    if (action === 'apply') {
+      console.log(`Auto-applying to job ${jobDetails.id} for user ${userId}`);
       
-    if (userError) {
-      throw new Error(`User verification failed: ${userError.message}`);
-    }
-    
-    // Get resume if resumeId is provided
-    let resume = null;
-    if (resumeId) {
-      const { data: resumeData, error: resumeError } = await supabase
+      // Get user profile and resume data
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      // Get user's latest resume
+      const { data: userResumes } = await supabase
         .from('resumes')
         .select('*')
-        .eq('id', resumeId)
         .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      const userResume = userResumes && userResumes.length > 0 ? userResumes[0] : null;
+      
+      // Log application to database
+      const { data: application, error: applicationError } = await supabase
+        .from('job_applications')
+        .insert([{
+          user_id: userId,
+          job_id: jobDetails.id,
+          job_title: jobDetails.title,
+          company: jobDetails.company,
+          job_url: jobDetails.url || jobDetails.applicationUrl,
+          status: 'applied',
+          auto_applied: true,
+          resume_id: userResume?.id,
+          notes: `Auto-applied via JobSwipe AI Agent on ${new Date().toISOString()}`
+        }])
+        .select()
         .single();
-        
-      if (resumeError && resumeError.code !== 'PGRST116') {
-        throw new Error(`Resume fetch failed: ${resumeError.message}`);
+      
+      if (applicationError) {
+        throw applicationError;
       }
       
-      resume = resumeData;
-    }
-    
-    // Determine if this is a LinkedIn job or other source
-    if (jobDetails.source === 'linkedin') {
-      return await handleLinkedInJobApplication(jobDetails, userId, resume, supabase);
+      // Log agent activity
+      await supabase
+        .from('job_agent_activities')
+        .insert([{
+          user_id: userId,
+          job_id: jobDetails.id,
+          action: 'apply',
+          status: 'completed',
+          result: {
+            success: true,
+            application_id: application.id,
+            timestamp: new Date().toISOString(),
+            job_details: {
+              title: jobDetails.title,
+              company: jobDetails.company
+            }
+          }
+        }]);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Job application submitted successfully',
+          application_id: application.id
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     } else {
-      return await handleGenericJobApplication(jobDetails, userId, resume, supabase);
+      return new Response(
+        JSON.stringify({ error: 'Invalid action' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
   } catch (error) {
-    console.error('Error in job-auto-apply function:', error);
+    console.error("Error in job-auto-apply function:", error);
     return new Response(
       JSON.stringify({ 
         success: false, 
-        message: error.message || 'Failed to apply for job' 
+        error: error.message || 'Failed to process job application' 
       }),
       { 
         status: 500, 
@@ -75,89 +117,3 @@ serve(async (req) => {
     );
   }
 });
-
-async function handleLinkedInJobApplication(jobDetails, userId, resume, supabase) {
-  try {
-    console.log(`Processing LinkedIn job application for: ${jobDetails.title}`);
-    
-    // Check if we have LinkedIn credentials for this user
-    const { data: credentials, error: credentialsError } = await supabase
-      .from('linkedin_credentials')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-      
-    if (credentialsError && credentialsError.code !== 'PGRST116') {
-      throw new Error(`LinkedIn credentials check failed: ${credentialsError.message}`);
-    }
-    
-    if (!credentials || !credentials.access_token) {
-      // Simulate successful application for demo purposes
-      return simulateSuccessfulApplication(jobDetails, resume);
-    }
-    
-    // In a real implementation, we would:
-    // 1. Use the LinkedIn API to submit an application
-    // 2. Track the application status
-    // 3. Store any relevant data
-    
-    // For now, we'll simulate a successful application
-    return simulateSuccessfulApplication(jobDetails, resume);
-  } catch (error) {
-    console.error('LinkedIn application error:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: `LinkedIn application failed: ${error.message}` 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-}
-
-async function handleGenericJobApplication(jobDetails, userId, resume, supabase) {
-  try {
-    console.log(`Processing generic job application for: ${jobDetails.title}`);
-    
-    // In a real implementation, we might:
-    // 1. Use a job board API to submit an application
-    // 2. Send an email with resume attached
-    // 3. Fill out a form on the company website
-    
-    // For now, we'll simulate a successful application
-    return simulateSuccessfulApplication(jobDetails, resume);
-  } catch (error) {
-    console.error('Generic application error:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: `Job application failed: ${error.message}` 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-}
-
-function simulateSuccessfulApplication(jobDetails, resume) {
-  // Calculate a "success" rate - in a demo this will succeed most of the time
-  const successRate = resume ? 0.9 : 0.7; // Higher chance of success with a resume
-  const isSuccessful = Math.random() < successRate;
-  
-  if (isSuccessful) {
-    const message = resume 
-      ? `Successfully applied to ${jobDetails.title} at ${jobDetails.company} using your resume "${resume.title}".`
-      : `Successfully applied to ${jobDetails.title} at ${jobDetails.company}.`;
-      
-    return new Response(
-      JSON.stringify({ success: true, message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } else {
-    const message = `Application to ${jobDetails.title} at ${jobDetails.company} couldn't be completed automatically. The company may require manual application.`;
-    
-    return new Response(
-      JSON.stringify({ success: false, message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-}

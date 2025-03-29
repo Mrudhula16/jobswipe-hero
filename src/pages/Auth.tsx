@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, signUp, loginWithEmail } = useAuth();
   
   // Redirect if already authenticated
   useEffect(() => {
@@ -29,25 +28,17 @@ const Auth = () => {
     setIsLoading(true);
     
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
+      const result = await signUp(email, password);
       
-      if (error) throw error;
-      
-      // Check if the user was created successfully
-      if (data && data.user) {
+      if (result.success) {
         toast({
           title: "Account created successfully",
           description: "You can now sign in with your credentials"
         });
-        
-        // If auto-confirm is enabled, user will be signed in automatically,
-        // but let's also navigate manually to ensure it happens
-        if (data.session) {
-          navigate('/');
-        }
+        // In case auto-confirmation is enabled
+        navigate('/');
+      } else if (result.error) {
+        throw result.error;
       }
     } catch (error: any) {
       console.error("Error signing up:", error.message);
@@ -66,20 +57,11 @@ const Auth = () => {
     setIsLoading(true);
     
     try {
-      const { error, data } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      await loginWithEmail(email, password);
+      toast({
+        title: "Signed in successfully",
       });
-      
-      if (error) throw error;
-      
-      // Successfully signed in
-      if (data && data.session) {
-        toast({
-          title: "Signed in successfully",
-        });
-        navigate('/');
-      }
+      navigate('/');
     } catch (error: any) {
       console.error("Error signing in:", error.message);
       toast({

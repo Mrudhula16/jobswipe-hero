@@ -1,348 +1,222 @@
 
-import { useState, useEffect, useRef } from "react";
-import { 
-  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle 
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { 
-  Building, MapPin, Briefcase, CalendarDays, Clock, Ban, Check, 
-  ChevronDown, ChevronUp, ArrowUpRight, AlertCircle, Star 
-} from "lucide-react";
-import { motion } from "framer-motion";
-import { Job } from "@/services/jobService";
-import { useJobAgent } from "@/hooks/useJobAgent";
+import React, { useState } from 'react';
+import { motion, PanInfo } from 'framer-motion';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Job } from '@/services/jobService';
+import { BriefcaseIcon, MapPin, Building, Clock, Calendar, DollarSign, ExternalLink, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 interface JobCardProps {
   job: Job;
-  onSwipe: (direction: "left" | "right") => void;
-  active: boolean;
+  onSwipe: (direction: 'left' | 'right') => void;
+  active?: boolean;
+  matchScore?: number;
 }
 
-const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
-  const cardRef = useRef<HTMLDivElement>(null);
+const JobCard: React.FC<JobCardProps> = ({ job, onSwipe, active = false, matchScore }) => {
+  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
+  const [isSwiping, setIsSwiping] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
-  const [currentPoint, setCurrentPoint] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [direction, setDirection] = useState<"" | "left" | "right">("");
-  const [skillsMatch, setSkillsMatch] = useState<number | null>(null);
-  const [isLoadingMatch, setIsLoadingMatch] = useState(false);
-  const { getSkillsMatchPercentage, shouldAutoApply } = useJobAgent();
-  const [willAutoApply, setWillAutoApply] = useState(false);
-  const [checkingAutoApply, setCheckingAutoApply] = useState(false);
 
-  // Calculate skills match when card becomes active
-  useEffect(() => {
-    if (active) {
-      checkSkillsMatch();
-      checkIfWillAutoApply();
-    }
-  }, [active, job.id]);
-
-  const checkSkillsMatch = async () => {
-    setIsLoadingMatch(true);
-    try {
-      const match = await getSkillsMatchPercentage(job);
-      setSkillsMatch(match);
-    } catch (error) {
-      console.error("Error getting skills match:", error);
-    } finally {
-      setIsLoadingMatch(false);
-    }
-  };
-
-  const checkIfWillAutoApply = async () => {
-    setCheckingAutoApply(true);
-    try {
-      const shouldApply = await shouldAutoApply(job);
-      setWillAutoApply(shouldApply);
-    } catch (error) {
-      console.error("Error checking if will auto-apply:", error);
-      setWillAutoApply(false);
-    } finally {
-      setCheckingAutoApply(false);
-    }
-  };
-
-  const handlePointerDown = (e: React.PointerEvent) => {
+  const handleDragEnd = (_: any, info: PanInfo) => {
     if (!active) return;
-    setStartPoint({ x: e.clientX, y: e.clientY });
-    setCurrentPoint({ x: e.clientX, y: e.clientY });
-    setIsDragging(true);
-  };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging) return;
-    setCurrentPoint({ x: e.clientX, y: e.clientY });
-    
-    const deltaX = currentPoint.x - startPoint.x;
-    
-    if (deltaX > 50) {
-      setDirection("right");
-    } else if (deltaX < -50) {
-      setDirection("left");
-    } else {
-      setDirection("");
+    const swipeThreshold = 100;
+    const direction = info.offset.x > swipeThreshold 
+      ? 'right' 
+      : info.offset.x < -swipeThreshold 
+        ? 'left' 
+        : null;
+
+    if (direction) {
+      setSwipeDirection(direction);
+      setTimeout(() => {
+        onSwipe(direction);
+        setSwipeDirection(null);
+      }, 200);
     }
   };
 
-  const handlePointerUp = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    
-    if (direction === "left" || direction === "right") {
-      onSwipe(direction);
-    }
-    
-    // Reset position
-    setCurrentPoint({ x: 0, y: 0 });
-    setStartPoint({ x: 0, y: 0 });
-    setDirection("");
+  const handleDragStart = () => {
+    if (!active) return;
+    setIsSwiping(true);
   };
 
-  // Convert ISO date to relative time
-  const getRelativeTime = (isoDate: string) => {
-    const date = new Date(isoDate);
-    const now = new Date();
-    const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffInDays === 0) return "Today";
-    if (diffInDays === 1) return "Yesterday";
-    if (diffInDays < 7) return `${diffInDays} days ago`;
-    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
-    return `${Math.floor(diffInDays / 30)} months ago`;
+  const getPostedTimeAgo = () => {
+    try {
+      return formatDistanceToNow(new Date(job.posted), { addSuffix: true });
+    } catch (error) {
+      return 'Recently';
+    }
   };
 
-  const deltaX = isDragging ? currentPoint.x - startPoint.x : 0;
-  const rotate = deltaX * 0.05;
-  
-  const renderSkillsMatchBadge = () => {
-    if (isLoadingMatch) {
-      return (
-        <div className="flex items-center gap-1">
-          <span className="h-2 w-2 bg-gray-400 rounded-full animate-pulse"></span>
-          <span className="text-xs text-gray-500">Checking match...</span>
-        </div>
-      );
-    }
-    
-    if (skillsMatch === null) return null;
-    
-    let color = "bg-red-500/10 text-red-600 border-red-200";
-    if (skillsMatch >= 80) {
-      color = "bg-green-500/10 text-green-600 border-green-200";
-    } else if (skillsMatch >= 60) {
-      color = "bg-amber-500/10 text-amber-600 border-amber-200";
-    }
-    
-    return (
-      <Badge variant="outline" className={`${color}`}>
-        {skillsMatch}% Match
-      </Badge>
-    );
+  const swipeLeftButton = () => {
+    if (!active) return;
+    setSwipeDirection('left');
+    setTimeout(() => {
+      onSwipe('left');
+      setSwipeDirection(null);
+    }, 200);
   };
 
-  const renderAutoApplyBadge = () => {
-    if (checkingAutoApply) {
-      return null;
-    }
-    
-    if (willAutoApply) {
-      return (
-        <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-200 flex items-center gap-1">
-          <Star className="h-3 w-3" />
-          Auto-Apply
-        </Badge>
-      );
-    }
-    
-    return null;
+  const swipeRightButton = () => {
+    if (!active) return;
+    setSwipeDirection('right');
+    setTimeout(() => {
+      onSwipe('right');
+      setSwipeDirection(null);
+    }, 200);
   };
 
   return (
     <motion.div
-      ref={cardRef}
-      className={`absolute inset-0 ${!active && "pointer-events-none"}`}
-      style={{
-        zIndex: active ? 10 : 0,
-      }}
+      className={`absolute w-full ${active ? 'z-10' : 'z-0'}`}
+      drag={active ? 'x' : false}
+      dragConstraints={{ left: 0, right: 0 }}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       animate={{
-        rotate: isDragging ? rotate : 0,
-        x: isDragging ? deltaX : 0,
         scale: active ? 1 : 0.9,
-        opacity: active ? 1 : 0.5,
+        opacity: active ? 1 : 0.6,
+        x: swipeDirection === 'left' ? -1000 : swipeDirection === 'right' ? 1000 : 0,
+        rotateZ: swipeDirection === 'left' ? -20 : swipeDirection === 'right' ? 20 : isSwiping ? Math.min(Math.max(-20, 0), 20) : 0
       }}
-      transition={{
-        type: "spring",
-        stiffness: 500,
-        damping: 30,
-      }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
     >
-      <Card className={`w-full h-full overflow-hidden neo-card relative ${
-        direction === "right"
-          ? "border-green-500 shadow-lg shadow-green-100"
-          : direction === "left"
-          ? "border-red-500 shadow-lg shadow-red-100"
-          : ""
-      }`}>
-        {job.isNew && (
-          <div className="absolute top-0 right-0 bg-primary text-white text-xs px-2 py-1 rounded-bl-md z-10">
-            New
+      <Card className="w-full shadow-xl overflow-hidden neo-card">
+        <div className="relative">
+          <div className="absolute top-4 right-4 z-10 flex gap-2">
+            {job.isNew && (
+              <Badge variant="default" className="bg-green-500">New</Badge>
+            )}
+            {matchScore !== undefined && (
+              <Badge variant="outline" className={`
+                ${matchScore >= 80 ? 'bg-green-100 text-green-800 border-green-200' : 
+                  matchScore >= 60 ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                  'bg-gray-100 text-gray-800 border-gray-200'}
+              `}>
+                {matchScore}% Match
+              </Badge>
+            )}
           </div>
-        )}
-        
-        {/* Direction Overlays */}
-        {direction === "right" && (
-          <div className="absolute top-1/2 left-6 transform -translate-y-1/2 bg-green-500 text-white p-2 rounded-full z-20">
-            <Check className="h-8 w-8" />
-          </div>
-        )}
-        {direction === "left" && (
-          <div className="absolute top-1/2 right-6 transform -translate-y-1/2 bg-red-500 text-white p-2 rounded-full z-20">
-            <Ban className="h-8 w-8" />
-          </div>
-        )}
-
-        <CardHeader className="pb-2">
-          <div className="flex justify-between items-start">
+          
+          <CardHeader className="pb-2">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 bg-secondary rounded-md flex items-center justify-center overflow-hidden">
+              <div className="h-12 w-12 rounded-md bg-secondary flex items-center justify-center overflow-hidden">
                 {job.logo ? (
                   <img 
                     src={job.logo} 
-                    alt={job.company} 
-                    className="h-8 w-8 object-contain"
-                    onError={(e) => { 
-                      e.currentTarget.src = "https://via.placeholder.com/32?text=" + job.company.charAt(0);
+                    alt={`${job.company} logo`} 
+                    className="h-10 w-10 object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40?text=' + job.company[0];
                     }}
                   />
                 ) : (
-                  <Building className="h-6 w-6 text-primary" />
+                  <BriefcaseIcon className="h-6 w-6 text-muted-foreground" />
                 )}
               </div>
+              
               <div>
-                <CardTitle className="text-xl line-clamp-1">{job.title}</CardTitle>
-                <CardDescription className="line-clamp-1">{job.company}</CardDescription>
+                <h3 className="text-lg font-semibold line-clamp-2">{job.title}</h3>
+                <div className="flex items-center text-muted-foreground">
+                  <Building className="h-3.5 w-3.5 mr-1" />
+                  <span className="text-sm">{job.company}</span>
+                </div>
               </div>
             </div>
-            <div className="flex gap-1 flex-col items-end">
-              {renderSkillsMatchBadge()}
-              {renderAutoApplyBadge()}
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className={`space-y-4 overflow-auto ${showDetails ? "max-h-[350px] pb-4" : "max-h-[230px]"}`}>
-          <div className="space-y-2">
-            <div className="flex items-center text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4 mr-2" />
-              <span className="line-clamp-1">{job.location}</span>
-            </div>
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Briefcase className="h-4 w-4 mr-2" />
-              <span>{job.type}</span>
-            </div>
-            <div className="flex items-center text-sm text-muted-foreground">
-              <CalendarDays className="h-4 w-4 mr-2" />
-              <span>Posted {getRelativeTime(job.posted)}</span>
-            </div>
-            {job.salary && (
-              <div className="flex items-center text-sm text-muted-foreground">
-                <Clock className="h-4 w-4 mr-2" />
-                <span>{job.salary}</span>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <h3 className="text-sm font-medium mb-2">Job Description</h3>
-            <div className={`text-sm text-muted-foreground ${showDetails ? "" : "line-clamp-4"}`}>
-              {job.description}
-            </div>
-          </div>
-
-          {showDetails && (
-            <>
-              <div>
-                <h3 className="text-sm font-medium mb-2">Requirements</h3>
-                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                  {job.requirements?.map((req, i) => (
-                    <li key={i} className="line-clamp-2">{req}</li>
-                  ))}
-                </ul>
+          </CardHeader>
+          
+          <CardContent className="pt-0 pb-4 space-y-4">
+            <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{job.location}</span>
               </div>
               
-              {skillsMatch !== null && (
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Skills Match</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span>Match with your resume</span>
-                      <span className={`font-medium ${
-                        skillsMatch >= 80 ? "text-green-600" : 
-                        skillsMatch >= 60 ? "text-amber-600" : 
-                        "text-red-600"
-                      }`}>{skillsMatch}%</span>
-                    </div>
-                    <Progress 
-                      value={skillsMatch} 
-                      className="h-2"
-                      color={
-                        skillsMatch >= 80 ? "bg-green-600" : 
-                        skillsMatch >= 60 ? "bg-amber-600" : 
-                        "bg-red-600"
-                      }
-                    />
-                    
-                    {willAutoApply && (
-                      <div className="flex items-center gap-2 text-sm bg-blue-50 p-2 rounded border border-blue-200 mt-2">
-                        <Star className="h-4 w-4 text-blue-600" />
-                        <span className="text-blue-700">AI Agent will auto-apply when you swipe right</span>
-                      </div>
-                    )}
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{getPostedTimeAgo()}</span>
+              </div>
+              
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <BriefcaseIcon className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{job.type}</span>
+              </div>
+              
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <DollarSign className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{job.salary || 'Not specified'}</span>
+              </div>
+            </div>
+            
+            <div className={`${showDetails ? '' : 'max-h-20 overflow-hidden relative'}`}>
+              <p className="text-sm text-muted-foreground mb-2">{job.description}</p>
+              
+              {!showDetails && (
+                <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background to-transparent"></div>
+              )}
+            </div>
+            
+            <button 
+              onClick={() => setShowDetails(!showDetails)}
+              className="text-xs text-primary hover:underline focus:outline-none"
+            >
+              {showDetails ? 'Show less' : 'Show more'}
+            </button>
+            
+            {showDetails && (
+              <>
+                <div className="pt-2">
+                  <h4 className="text-sm font-medium mb-2">Requirements</h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {job.requirements.map((req, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        {req}
+                      </Badge>
+                    ))}
                   </div>
                 </div>
-              )}
-              
-              <div className="pt-4">
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
-                  onClick={() => window.open(job.url || job.applicationUrl, '_blank')}
-                >
-                  View on {job.source === 'linkedin' ? 'LinkedIn' : 'Job Board'}
-                  <ArrowUpRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </>
-          )}
-        </CardContent>
-
-        <CardFooter className="pt-0 border-t border-border">
-          <Button 
-            variant="ghost" 
-            className="w-full" 
-            onClick={() => setShowDetails(prev => !prev)}
-          >
-            {showDetails ? (
-              <>
-                <ChevronUp className="h-4 w-4 mr-2" />
-                Show Less
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-4 w-4 mr-2" />
-                Show More
+                
+                {job.url && (
+                  <a 
+                    href={job.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-sm text-primary hover:underline"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                    View original posting
+                  </a>
+                )}
               </>
             )}
-          </Button>
-        </CardFooter>
+          </CardContent>
+        </div>
+        
+        {active && (
+          <CardFooter className="pt-0 pb-4 px-4 flex justify-between">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-12 w-12 rounded-full border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600"
+              onClick={swipeLeftButton}
+            >
+              <ThumbsDown className="h-5 w-5" />
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-12 w-12 rounded-full border-green-200 text-green-500 hover:bg-green-50 hover:text-green-600" 
+              onClick={swipeRightButton}
+            >
+              <ThumbsUp className="h-5 w-5" />
+            </Button>
+          </CardFooter>
+        )}
       </Card>
     </motion.div>
   );
