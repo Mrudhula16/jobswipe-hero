@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Logo } from "@/components/Logo";
+import { toast } from "@/hooks/use-toast";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -28,16 +29,33 @@ const Auth = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
       });
       
       if (error) throw error;
       
-      // Success message will be shown by auth state change
+      // Check if the user was created successfully
+      if (data && data.user) {
+        toast({
+          title: "Account created successfully",
+          description: "You can now sign in with your credentials"
+        });
+        
+        // If auto-confirm is enabled, user will be signed in automatically,
+        // but let's also navigate manually to ensure it happens
+        if (data.session) {
+          navigate('/');
+        }
+      }
     } catch (error: any) {
       console.error("Error signing up:", error.message);
+      toast({
+        title: "Error creating account",
+        description: error.message || "Something went wrong",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -48,16 +66,27 @@ const Auth = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error, data } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
       if (error) throw error;
       
-      // Success message will be shown by auth state change
+      // Successfully signed in
+      if (data && data.session) {
+        toast({
+          title: "Signed in successfully",
+        });
+        navigate('/');
+      }
     } catch (error: any) {
       console.error("Error signing in:", error.message);
+      toast({
+        title: "Error signing in",
+        description: error.message || "Please check your credentials",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
