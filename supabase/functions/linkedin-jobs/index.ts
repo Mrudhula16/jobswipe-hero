@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const linkedinApiKey = Deno.env.get("LINKEDIN_API_KEY") || "";
+const linkedinApiSecret = Deno.env.get("LINKEDIN_API_SECRET") || "";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,7 +43,6 @@ serve(async (req) => {
       const filterParams = buildLinkedInFilterParams(filters);
       
       // Try to fetch real jobs from LinkedIn
-      // This would use real LinkedIn API if API key is available
       const linkedInJobs = await fetchJobsFromLinkedIn(query, location, count, filterParams, lastJobId);
       
       if (linkedInJobs.length > 0) {
@@ -107,17 +107,92 @@ function buildLinkedInFilterParams(filters: any) {
   return params.toString();
 }
 
-// Function to fetch jobs from LinkedIn API (would use real API in production)
+// Function to fetch jobs from LinkedIn API
 async function fetchJobsFromLinkedIn(query: string, location: string, count: number, filters: string, lastJobId?: string) {
   // If LinkedIn API key is not set, return empty array to trigger fallback
-  if (!linkedinApiKey) {
+  if (!linkedinApiKey || !linkedinApiSecret) {
+    console.log("LinkedIn API keys not configured, falling back to simulated data");
     return [];
   }
   
   try {
-    // This would be implemented with the actual LinkedIn API
-    // For now, return empty array to trigger the fallback
-    return [];
+    // First, get an access token
+    const tokenResponse = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        'grant_type': 'client_credentials',
+        'client_id': linkedinApiKey,
+        'client_secret': linkedinApiSecret,
+        'scope': 'r_liteprofile r_emailaddress w_member_social r_ads r_ads_reporting'
+      })
+    });
+    
+    if (!tokenResponse.ok) {
+      console.error("LinkedIn API token error:", await tokenResponse.text());
+      return [];
+    }
+    
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
+    
+    // Now use the access token to search for jobs
+    // Note: This is using LinkedIn's Marketing API to search for jobs
+    // The exact endpoint may change based on LinkedIn's documentation
+    const searchUrl = new URL('https://api.linkedin.com/v2/jobSearch');
+    
+    // Add basic parameters
+    searchUrl.searchParams.append('keywords', query);
+    if (location) {
+      searchUrl.searchParams.append('location', location);
+    }
+    searchUrl.searchParams.append('count', count.toString());
+    
+    // Add any additional filters
+    if (filters) {
+      searchUrl.search += '&' + filters;
+    }
+    
+    // Add pagination if lastJobId is provided
+    if (lastJobId) {
+      searchUrl.searchParams.append('start', lastJobId);
+    }
+    
+    const response = await fetch(searchUrl.toString(), {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      console.error("LinkedIn API search error:", await response.text());
+      return [];
+    }
+    
+    const data = await response.json();
+    
+    // Transform LinkedIn API response to our job format
+    // Note: This transformation will depend on the actual structure of LinkedIn's API response
+    return data.elements.map((job: any) => ({
+      id: `linkedin-${job.id}`,
+      title: job.title,
+      company: job.company.name,
+      location: job.locationName,
+      salary: job.salary?.range || "Not specified",
+      description: job.description,
+      requirements: job.skills || [],
+      posted: job.postedAt,
+      type: job.employmentType || "Full-time",
+      logo: job.company.logoUrl,
+      isNew: new Date(job.postedAt) > new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // Posted in last 3 days
+      url: job.applyUrl,
+      applicationUrl: job.applyUrl,
+      source: "linkedin",
+      sourceId: job.id
+    }));
   } catch (error) {
     console.error("LinkedIn API error:", error);
     return [];
