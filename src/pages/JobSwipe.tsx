@@ -140,9 +140,9 @@ const JobSwipe = () => {
       <div className="max-w-md w-full mx-auto">
         {jobs.length > 0 && currentIndex < jobs.length && (
           <JobSwiper
-            currentJob={jobs[currentIndex]}
             onSwipeLeft={() => handleSwipe("left")}
             onSwipeRight={() => handleSwipe("right")}
+            currentJob={jobs[currentIndex]}
           />
         )}
         

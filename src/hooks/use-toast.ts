@@ -5,18 +5,11 @@ import {
   ToastProps,
 } from "@/components/ui/toast";
 
-export type ToasterToast = ToastProps & {
-  id: string
-  title?: React.ReactNode
-  description?: React.ReactNode
-  action?: ToastActionElement
-}
-
 // Create a standalone toast context to avoid circular dependencies
 const TOAST_LIMIT = 20;
 const TOAST_REMOVE_DELAY = 1000;
 
-type ToasterToast = ToastProps & {
+export type ToasterToast = ToastProps & {
   id: string;
   title?: React.ReactNode;
   description?: React.ReactNode;
