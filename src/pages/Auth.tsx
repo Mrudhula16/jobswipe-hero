@@ -16,7 +16,6 @@ const Auth = () => {
   const navigate = useNavigate();
   const { isAuthenticated, signUp, loginWithEmail } = useAuth();
   
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/');
@@ -35,7 +34,6 @@ const Auth = () => {
           title: "Account created successfully",
           description: "You can now sign in with your credentials"
         });
-        // In case auto-confirmation is enabled
         navigate('/');
       } else if (result.error) {
         throw result.error;
