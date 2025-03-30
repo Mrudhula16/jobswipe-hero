@@ -138,12 +138,13 @@ const JobSwipe = () => {
 
     return (
       <div className="max-w-md w-full mx-auto">
-        <JobSwiper
-          jobs={jobs}
-          currentJob={jobs[currentIndex]}
-          onSwipeLeft={() => handleSwipe("left")}
-          onSwipeRight={() => handleSwipe("right")}
-        />
+        {jobs.length > 0 && currentIndex < jobs.length && (
+          <JobSwiper
+            currentJob={jobs[currentIndex]}
+            onSwipeLeft={() => handleSwipe("left")}
+            onSwipeRight={() => handleSwipe("right")}
+          />
+        )}
         
         <div className="flex justify-center mt-4 space-x-4">
           <Button
@@ -195,10 +196,6 @@ const JobSwipe = () => {
                 <JobFilters 
                   onApplyFilters={(filters) => {
                     applyFilters(filters);
-                    setFiltersOpen(false);
-                  }}
-                  onReset={() => {
-                    resetJobs();
                     setFiltersOpen(false);
                   }}
                 />

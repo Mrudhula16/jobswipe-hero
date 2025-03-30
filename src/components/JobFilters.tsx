@@ -23,10 +23,11 @@ import { FilterOption } from "@/hooks/useJobFilters";
 interface JobFiltersProps {
   onFilterChange?: (filters: Record<string, string[]>) => void;
   onApplyFilters?: (filters?: Record<string, any>) => void;
+  onReset?: () => void;
   isFiltering?: boolean;
 }
 
-const JobFilters = ({ onFilterChange, onApplyFilters, isFiltering = false }: JobFiltersProps) => {
+const JobFilters = ({ onFilterChange, onApplyFilters, onReset, isFiltering = false }: JobFiltersProps) => {
   const { filterCategories, filterOptions, isLoading } = useJobFilters();
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -75,6 +76,10 @@ const JobFilters = ({ onFilterChange, onApplyFilters, isFiltering = false }: Job
     setSelectedFilters(emptyFilters);
     if (onFilterChange) {
       onFilterChange(emptyFilters);
+    }
+    
+    if (onReset) {
+      onReset();
     }
   };
 

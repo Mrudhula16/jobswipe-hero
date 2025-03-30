@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Robot } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const JobAgentConfigDialog = () => {
@@ -85,7 +85,7 @@ const JobAgentConfigDialog = () => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
-          <Robot className="h-4 w-4" />
+          <Bot className="h-4 w-4" />
           Job Agent
         </Button>
       </DialogTrigger>
