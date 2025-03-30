@@ -38,7 +38,7 @@ serve(async (req) => {
       );
     }
     
-    const { action, authCode, redirectUri, query, location, filters } = await req.json();
+    const { action, authCode, redirectUri, state } = await req.json();
     
     if (!action) {
       return new Response(
@@ -52,7 +52,8 @@ serve(async (req) => {
     
     if (action === 'authorize') {
       // Generate LinkedIn authorization URL
-      const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${linkedinClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=random_state_string&scope=r_liteprofile%20r_emailaddress%20w_member_social`;
+      // Using the OAuth 2.0 flow with publicly available scopes
+      const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${linkedinClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=r_liteprofile%20r_emailaddress`;
       
       result = { authUrl };
     } else if (action === 'exchange_token') {
@@ -63,6 +64,8 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      
+      console.log("Exchanging auth code for token with LinkedIn API");
       
       const tokenResponse = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
         method: 'POST',
@@ -85,6 +88,24 @@ serve(async (req) => {
       }
       
       const tokenData = await tokenResponse.json();
+      console.log("Received token from LinkedIn", { expires_in: tokenData.expires_in });
+      
+      // Get user profile data
+      const profileResponse = await fetch('https://api.linkedin.com/v2/me', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'cache-control': 'no-cache',
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+      });
+      
+      if (!profileResponse.ok) {
+        console.error('LinkedIn profile fetch error:', await profileResponse.text());
+        throw new Error('Failed to fetch LinkedIn profile');
+      }
+      
+      const profileData = await profileResponse.json();
+      console.log("Retrieved LinkedIn profile", { id: profileData.id, name: `${profileData.localizedFirstName} ${profileData.localizedLastName}` });
       
       // Store the LinkedIn credentials in the database
       const { error: credentialsError } = await supabase
@@ -92,8 +113,12 @@ serve(async (req) => {
         .upsert({
           user_id: user.id,
           access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token || null,
           expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
+          profile_data: {
+            linkedin_id: profileData.id,
+            first_name: profileData.localizedFirstName,
+            last_name: profileData.localizedLastName
+          }
         });
       
       if (credentialsError) {
@@ -101,9 +126,16 @@ serve(async (req) => {
         throw credentialsError;
       }
       
-      result = { success: true, message: 'LinkedIn account connected successfully' };
-    } else if (action === 'search_jobs') {
-      // Search for jobs using LinkedIn API, first check if user has valid credentials
+      result = { 
+        success: true, 
+        message: 'LinkedIn account connected successfully',
+        profile: {
+          name: `${profileData.localizedFirstName} ${profileData.localizedLastName}`,
+          id: profileData.id
+        }
+      };
+    } else if (action === 'check_connection') {
+      // Check if user has valid LinkedIn credentials
       const { data: credentials, error: credentialsError } = await supabase
         .from('linkedin_credentials')
         .select('*')
@@ -115,65 +147,25 @@ serve(async (req) => {
         throw credentialsError;
       }
       
-      if (!credentials || new Date(credentials.expires_at) < new Date()) {
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized', message: 'LinkedIn account not connected or token expired' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      const isConnected = credentials && new Date(credentials.expires_at) > new Date();
+      result = { 
+        isConnected, 
+        profile: credentials?.profile_data || null,
+        expires_at: credentials?.expires_at || null
+      };
+    } else if (action === 'disconnect') {
+      // Remove LinkedIn connection
+      const { error: deleteError } = await supabase
+        .from('linkedin_credentials')
+        .delete()
+        .eq('user_id', user.id);
+        
+      if (deleteError) {
+        console.error('Error disconnecting LinkedIn account:', deleteError);
+        throw deleteError;
       }
       
-      // For now, we'll use the existing linkedin-jobs function for actual job search
-      // This ensures we maintain compatibility with the rest of the app
-      const { data: jobsData, error: jobsError } = await supabase.functions
-        .invoke('linkedin-jobs', {
-          body: {
-            action: 'search',
-            query: query || '',
-            location: location || '',
-            filters: filters || {},
-          }
-        });
-      
-      if (jobsError) {
-        console.error('Error searching for jobs:', jobsError);
-        throw jobsError;
-      }
-      
-      result = jobsData;
-    } else if (action === 'one_click_apply') {
-      // Implement one-click apply using LinkedIn's API
-      // This is a placeholder - in a real implementation, we would use LinkedIn's API
-      // to submit the application on behalf of the user
-      
-      const { jobId, resumeId } = await req.json();
-      
-      if (!jobId) {
-        return new Response(
-          JSON.stringify({ error: 'Bad Request', message: 'Job ID is required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      // Record the application in our database
-      const { data: application, error: applicationError } = await supabase
-        .from('job_applications')
-        .insert({
-          user_id: user.id,
-          job_id: jobId,
-          status: 'applied',
-          auto_applied: true,
-          resume_id: resumeId,
-          notes: 'Applied via LinkedIn integration'
-        })
-        .select()
-        .single();
-      
-      if (applicationError) {
-        console.error('Error recording application:', applicationError);
-        throw applicationError;
-      }
-      
-      result = { success: true, application_id: application.id };
+      result = { success: true, message: 'LinkedIn account disconnected successfully' };
     } else {
       return new Response(
         JSON.stringify({ error: 'Bad Request', message: 'Invalid action' }),

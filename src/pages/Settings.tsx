@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import AccountConnector from "@/components/AccountConnector";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -48,6 +49,8 @@ const Settings = () => {
               </div>
             </CardContent>
           </Card>
+          
+          <AccountConnector />
           
           <Card>
             <CardHeader>
