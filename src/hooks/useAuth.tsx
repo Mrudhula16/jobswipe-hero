@@ -5,9 +5,8 @@ import { User, Session } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 
 // Simple console logging function to avoid circular dependencies
-const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-  console.log(`Toast (${type}):`, message);
-  // We'll use this simple implementation that doesn't depend on the toast component
+const logMessage = (message: string, type: 'success' | 'error' = 'success') => {
+  console.log(`[Auth] (${type}):`, message);
 };
 
 interface AuthContextType {
@@ -59,10 +58,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       await supabase.auth.signOut();
-      showToast("Signed out successfully");
+      logMessage("Signed out successfully");
     } catch (error) {
       console.error("Sign out error:", error);
-      showToast("Error signing out", "error");
+      logMessage("Error signing out", "error");
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error: any) {
       console.error("Login error:", error);
-      showToast(error.message || "An error occurred during login.", "error");
+      logMessage(error.message || "An error occurred during login.", "error");
       throw error;
     } finally {
       setIsLoading(false);
@@ -122,10 +121,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
       
-      showToast("Verification successful", "success");
+      logMessage("Verification successful", "success");
     } catch (error: any) {
       console.error("OTP verification error:", error);
-      showToast(error.message || "Failed to verify code", "error");
+      logMessage(error.message || "Failed to verify code", "error");
       throw error;
     } finally {
       setIsLoading(false);

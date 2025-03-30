@@ -4,11 +4,10 @@ import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 
 const Settings = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
 
   return (
     <div className="min-h-screen bg-background">
