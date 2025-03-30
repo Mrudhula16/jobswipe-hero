@@ -5,6 +5,11 @@ import { useAuth } from './useAuth';
 import { toast } from './use-toast';
 import { Job } from '@/services/jobService';
 
+interface JobAgentToggleResult {
+  is_active: boolean;
+  message: string;
+}
+
 interface UseJobAgentReturn {
   isActive: boolean;
   isLoading: boolean;
@@ -14,11 +19,6 @@ interface UseJobAgentReturn {
   getSkillsMatchPercentage: (job: Job) => Promise<number>;
   shouldAutoApply: (job: Job) => Promise<boolean>;
   updateConfig: (newConfig: any) => Promise<void>;
-}
-
-interface JobAgentToggleResult {
-  is_active: boolean;
-  message: string;
 }
 
 export const useJobAgent = (): UseJobAgentReturn => {
@@ -84,9 +84,9 @@ export const useJobAgent = (): UseJobAgentReturn => {
 
       if (error) throw error;
 
-      // Handle the data properly by casting it to the expected type
-      const result = data as JobAgentToggleResult;
-
+      // Cast and safely handle the response data
+      const result = data as unknown as JobAgentToggleResult;
+      
       setIsActive(result.is_active);
       setConfig(prev => ({ ...prev, is_active: result.is_active }));
 
@@ -158,7 +158,7 @@ export const useJobAgent = (): UseJobAgentReturn => {
           title: 'Application Submitted',
           description: `Successfully applied to ${job.title} at ${job.company}`
         });
-        return autoApplyData.success;
+        return true;
       } else {
         // If agent not active, just record the application
         toast({
@@ -195,6 +195,7 @@ export const useJobAgent = (): UseJobAgentReturn => {
 
       // Handle different possible types for skills
       let skills: any[] = [];
+      
       if (typeof userResume.skills === 'string') {
         try {
           skills = JSON.parse(userResume.skills);
@@ -204,6 +205,12 @@ export const useJobAgent = (): UseJobAgentReturn => {
         }
       } else if (Array.isArray(userResume.skills)) {
         skills = userResume.skills;
+      } else if (typeof userResume.skills === 'object') {
+        // Handle case where skills is a JSON object with array inside
+        const skillsObj = userResume.skills as any;
+        if (Array.isArray(skillsObj)) {
+          skills = skillsObj;
+        }
       } else {
         console.error('Unknown skills format:', userResume.skills);
         return 0;

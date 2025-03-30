@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 
-// Simple toast implementation to avoid circular dependencies
+// Simple console logging function to avoid circular dependencies
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   console.log(`Toast (${type}):`, message);
   // We'll use this simple implementation that doesn't depend on the toast component
@@ -79,8 +79,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         throw error;
       }
-      
-      // Return void to match the type signature
     } catch (error: any) {
       console.error("Login error:", error);
       showToast(error.message || "An error occurred during login.", "error");
