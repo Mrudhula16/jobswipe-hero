@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -13,9 +13,16 @@ const SignIn = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [otp, setOtp] = useState('');
   const [showOtpInput, setShowOtpInput] = useState(false);
-  const { loginWithEmail, verifyOTP } = useAuth();
+  const { loginWithEmail, verifyOTP, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Redirect to JobSwipe page if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/job-swipe');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +38,7 @@ const SignIn = () => {
     setIsSubmitting(true);
     try {
       await loginWithEmail(email, password);
-      navigate('/');
+      navigate('/job-swipe');
       toast({
         title: "Signed in successfully",
         description: "Welcome back!",
