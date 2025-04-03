@@ -1,67 +1,88 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "./useAuth";
+import { useToast } from "./use-toast";
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
-import { toast } from './use-toast';
-import { Job } from '@/services/jobService';
+interface JobApplication {
+  id?: string;
+  job_title: string;
+  company: string;
+  job_url?: string;
+  status: 'pending' | 'applied' | 'failed';
+  auto_applied?: boolean;
+  notes?: string;
+  created_at?: string;
+}
 
-interface JobAgentToggleResult {
+interface JobAgentConfig {
+  id?: string;
   is_active: boolean;
-  message: string;
+  ml_parameters?: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface UseJobAgentReturn {
   isActive: boolean;
   isLoading: boolean;
-  config: any;
+  error: Error | null;
+  applications: JobApplication[];
   toggleJobAgent: () => Promise<void>;
-  applyToJob: (job: Job) => Promise<boolean>;
-  getSkillsMatchPercentage: (job: Job) => Promise<number>;
-  shouldAutoApply: (job: Job) => Promise<boolean>;
-  updateConfig: (newConfig: any) => Promise<void>;
+  setMLParameters: (params: Record<string, any>) => Promise<void>;
+  applyToJob: (jobDetails: any) => Promise<boolean>;
 }
 
 export const useJobAgent = (): UseJobAgentReturn => {
-  const [isActive, setIsActive] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [config, setConfig] = useState<any>(null);
+  const [isActive, setIsActive] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
   const { user } = useAuth();
+  const { toast } = useToast();
 
-  useEffect(() => {
-    if (user) {
-      fetchAgentConfig();
-    } else {
+  const fetchStatus = async () => {
+    if (!user) {
       setIsLoading(false);
+      return;
     }
-  }, [user]);
 
-  const fetchAgentConfig = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('job_agent_configs')
+      const { data, error } = await supabase.functions.invoke('job-agent', {
+        body: { action: 'status' }
+      });
+
+      if (error) throw error;
+      setIsActive(data?.is_active || false);
+      
+      const { data: appData, error: appError } = await supabase
+        .from('job_applications')
         .select('*')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching job agent config:', error);
-        throw error;
-      }
-
-      if (data) {
-        setConfig(data);
-        setIsActive(data.is_active);
-      } else {
-        setConfig(null);
-        setIsActive(false);
-      }
-    } catch (error) {
-      console.error('Error in fetchAgentConfig:', error);
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (appError) throw appError;
+      
+      const transformedApplications: JobApplication[] = appData?.map(app => ({
+        id: app.id,
+        job_title: app.job_title,
+        company: app.company,
+        job_url: app.job_url,
+        status: app.status as 'pending' | 'applied' | 'failed',
+        auto_applied: app.auto_applied,
+        notes: app.notes,
+        created_at: app.created_at
+      })) || [];
+      
+      setApplications(transformedApplications);
+      
+    } catch (err) {
+      console.error('Error fetching job agent status:', err);
+      setError(err instanceof Error ? err : new Error(String(err)));
       toast({
-        title: 'Error',
-        description: 'Failed to load job agent configuration',
-        variant: 'destructive'
+        title: "Error",
+        description: "Failed to fetch job agent status. Please try again.",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
@@ -71,270 +92,184 @@ export const useJobAgent = (): UseJobAgentReturn => {
   const toggleJobAgent = async () => {
     if (!user) {
       toast({
-        title: 'Authentication Required',
-        description: 'Please sign in to use the job agent',
-        variant: 'destructive'
+        title: "Authentication Required",
+        description: "Please sign in to use the Job Agent feature.",
+        variant: "destructive"
       });
       return;
     }
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.rpc('toggle_job_agent');
+      const { data, error } = await supabase.functions.invoke('job-agent', {
+        body: { 
+          action: 'toggle',
+          parameters: {
+            is_active: !isActive
+          }
+        }
+      });
 
       if (error) throw error;
-
-      // Cast and safely handle the response data
-      const result = data as unknown as JobAgentToggleResult;
       
-      setIsActive(result.is_active);
-      setConfig(prev => ({ ...prev, is_active: result.is_active }));
-
+      setIsActive(data?.is_active || false);
       toast({
-        title: result.is_active ? 'Job Agent Activated' : 'Job Agent Deactivated',
-        description: result.message
+        title: data?.is_active ? "Job Agent Activated" : "Job Agent Deactivated",
+        description: data?.message || "Status updated successfully.",
       });
-    } catch (error) {
-      console.error('Error toggling job agent:', error);
+    } catch (err) {
+      console.error('Error toggling job agent:', err);
+      setError(err instanceof Error ? err : new Error(String(err)));
       toast({
-        title: 'Error',
-        description: 'Failed to toggle job agent',
-        variant: 'destructive'
+        title: "Error",
+        description: "Failed to update job agent status. Please try again.",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const applyToJob = async (job: Job): Promise<boolean> => {
+  const setMLParameters = async (params: Record<string, any>) => {
     if (!user) {
       toast({
-        title: 'Authentication Required',
-        description: 'Please sign in to apply to jobs',
-        variant: 'destructive'
-      });
-      return false;
-    }
-
-    try {
-      // First, record the application in our database
-      const { data: applicationData, error: applicationError } = await supabase
-        .from('job_applications')
-        .insert({
-          user_id: user.id,
-          job_id: job.id,
-          job_title: job.title,
-          company: job.company,
-          job_url: job.url || job.applicationUrl,
-          status: 'applied',
-          auto_applied: isActive
-        })
-        .select()
-        .single();
-
-      if (applicationError) throw applicationError;
-
-      // If agent is active, try auto-apply via the edge function
-      if (isActive) {
-        const { data: autoApplyData, error: autoApplyError } = await supabase.functions
-          .invoke('job-auto-apply', {
-            body: {
-              action: 'apply',
-              jobDetails: job,
-              userId: user.id
-            }
-          });
-
-        if (autoApplyError) {
-          console.warn('Auto-apply failed, but application was recorded:', autoApplyError);
-          toast({
-            title: 'Application Recorded',
-            description: `Your application to ${job.title} at ${job.company} was saved, but automatic submission failed.`
-          });
-          return true;
-        }
-
-        toast({
-          title: 'Application Submitted',
-          description: `Successfully applied to ${job.title} at ${job.company}`
-        });
-        return true;
-      } else {
-        // If agent not active, just record the application
-        toast({
-          title: 'Application Saved',
-          description: `Your interest in ${job.title} at ${job.company} was recorded`
-        });
-        return true;
-      }
-    } catch (error) {
-      console.error('Error applying to job:', error);
-      toast({
-        title: 'Application Failed',
-        description: 'There was an error submitting your application',
-        variant: 'destructive'
-      });
-      return false;
-    }
-  };
-
-  const getSkillsMatchPercentage = async (job: Job): Promise<number> => {
-    if (!user) return 0;
-
-    try {
-      // Get user's latest resume
-      const { data: userResumes } = await supabase
-        .from('resumes')
-        .select('skills')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      const userResume = userResumes && userResumes.length > 0 ? userResumes[0] : null;
-      if (!userResume || !userResume.skills) return 0;
-
-      // Handle different possible types for skills
-      let skills: any[] = [];
-      
-      if (typeof userResume.skills === 'string') {
-        try {
-          skills = JSON.parse(userResume.skills);
-        } catch (e) {
-          console.error('Failed to parse skills string:', e);
-          return 0;
-        }
-      } else if (Array.isArray(userResume.skills)) {
-        skills = userResume.skills;
-      } else if (typeof userResume.skills === 'object') {
-        // Handle case where skills is a JSON object with array inside
-        const skillsObj = userResume.skills as any;
-        if (Array.isArray(skillsObj)) {
-          skills = skillsObj;
-        }
-      } else {
-        console.error('Unknown skills format:', userResume.skills);
-        return 0;
-      }
-      
-      // Extract skills from job requirements
-      const jobSkills = job.requirements.map(req => req.toLowerCase());
-      const userSkills = skills.map((skill: any) => (typeof skill === 'string' ? skill : skill.name || '').toLowerCase());
-
-      // Calculate match percentage
-      const matchingSkills = userSkills.filter(skill => 
-        jobSkills.some(jobSkill => jobSkill.includes(skill))
-      );
-
-      return Math.round((matchingSkills.length / Math.max(jobSkills.length, 1)) * 100);
-    } catch (error) {
-      console.error('Error calculating skills match:', error);
-      return 0;
-    }
-  };
-
-  const shouldAutoApply = async (job: Job): Promise<boolean> => {
-    if (!isActive || !user) return false;
-
-    try {
-      // Get agent configuration
-      const { data: agentConfig } = await supabase
-        .from('job_agent_configs')
-        .select('auto_apply_preferences')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!agentConfig || !agentConfig.auto_apply_preferences) return false;
-
-      // Parse preferences if needed
-      let preferences: any = agentConfig.auto_apply_preferences;
-      if (typeof preferences === 'string') {
-        try {
-          preferences = JSON.parse(preferences);
-        } catch (e) {
-          console.error('Failed to parse preferences:', e);
-          return false;
-        }
-      }
-      
-      // Check skills match threshold
-      const skillsMatch = await getSkillsMatchPercentage(job);
-      const skillsMatchThreshold = preferences.skills_match_threshold || 60;
-      
-      // Check job location preference
-      const locationPreference = preferences.location_preference || 'any';
-      const locationMatch = locationPreference === 'any' || 
-                           (locationPreference === 'remote' && job.location.toLowerCase().includes('remote')) ||
-                           job.location.toLowerCase().includes(locationPreference.toLowerCase());
-      
-      // Check if should auto-apply on swipe right
-      const applyOnSwipeRight = preferences.apply_on_swipe_right !== false;
-      
-      // Check if daily limit is reached
-      const { count } = await supabase
-        .from('job_applications')
-        .select('id', { count: 'exact' })
-        .eq('user_id', user.id)
-        .eq('auto_applied', true)
-        .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
-      
-      const dailyLimit = preferences.max_daily_applications || 10;
-      const withinDailyLimit = count < dailyLimit;
-      
-      return skillsMatch >= skillsMatchThreshold && 
-             locationMatch && 
-             applyOnSwipeRight && 
-             withinDailyLimit;
-    } catch (error) {
-      console.error('Error determining auto-apply:', error);
-      return false;
-    }
-  };
-
-  const updateConfig = async (newConfig: any): Promise<void> => {
-    if (!user) {
-      toast({
-        title: 'Authentication Required',
-        description: 'Please sign in to update job agent configuration',
-        variant: 'destructive'
+        title: "Authentication Required",
+        description: "Please sign in to configure ML parameters.",
+        variant: "destructive"
       });
       return;
     }
 
     try {
-      const { error } = await supabase
-        .from('job_agent_configs')
-        .upsert({
-          user_id: user.id,
-          ...newConfig
-        });
+      const { data, error } = await supabase.functions.invoke('job-agent', {
+        body: { 
+          action: 'ml_integration',
+          parameters: {
+            model_type: params.model_type || 'default',
+            endpoint_url: params.endpoint_url,
+            params: params
+          }
+        }
+      });
 
       if (error) throw error;
-
-      setConfig(prev => ({ ...prev, ...newConfig }));
-      setIsActive(newConfig.is_active);
-
+      
       toast({
-        title: 'Configuration Updated',
-        description: 'Job agent configuration updated successfully'
+        title: "ML Configuration Saved",
+        description: "Your ML model configuration has been updated successfully.",
       });
-    } catch (error) {
-      console.error('Error updating job agent config:', error);
+      
+      return data;
+    } catch (err) {
+      console.error('Error updating ML parameters:', err);
+      setError(err instanceof Error ? err : new Error(String(err)));
       toast({
-        title: 'Update Failed',
-        description: 'Failed to update job agent configuration',
-        variant: 'destructive'
+        title: "Error",
+        description: "Failed to update ML configuration. Please try again.",
+        variant: "destructive"
       });
     }
   };
 
+  const applyToJob = async (jobDetails: any): Promise<boolean> => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to apply for jobs.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    if (!isActive) {
+      try {
+        const { error } = await supabase
+          .from('job_applications')
+          .insert({
+            user_id: user.id,
+            job_title: jobDetails.title,
+            company: jobDetails.company,
+            job_url: jobDetails.applicationUrl || jobDetails.url,
+            status: 'pending',
+            auto_applied: false
+          });
+          
+        if (error) throw error;
+        
+        toast({
+          title: "Job Saved",
+          description: `${jobDetails.title} at ${jobDetails.company} has been saved to your applications.`,
+        });
+        
+        fetchStatus();
+        return true;
+      } catch (err) {
+        console.error('Error saving job application:', err);
+        toast({
+          title: "Error",
+          description: "Failed to save job application.",
+          variant: "destructive"
+        });
+        return false;
+      }
+    }
+    
+    try {
+      setIsLoading(true);
+      toast({
+        title: "Auto-Applying",
+        description: `Attempting to apply for ${jobDetails.title} at ${jobDetails.company}...`,
+      });
+      
+      const { data, error } = await supabase.functions.invoke('job-auto-apply', {
+        body: { 
+          jobDetails,
+          userId: user.id
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data.success) {
+        toast({
+          title: "Application Successful",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "Application Failed",
+          description: data.message,
+          variant: "destructive"
+        });
+      }
+      
+      fetchStatus();
+      return data.success;
+    } catch (err) {
+      console.error('Error during auto-application:', err);
+      setError(err instanceof Error ? err : new Error(String(err)));
+      toast({
+        title: "Auto-Application Error",
+        description: "Failed to apply to job. Please try manually.",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+  }, [user]);
+
   return {
     isActive,
     isLoading,
-    config,
+    error,
+    applications,
     toggleJobAgent,
-    applyToJob,
-    getSkillsMatchPercentage,
-    shouldAutoApply,
-    updateConfig
+    setMLParameters,
+    applyToJob
   };
 };

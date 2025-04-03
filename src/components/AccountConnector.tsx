@@ -1,12 +1,9 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, ExternalLink, Linkedin, Mail, Globe, AlertCircle, Loader2 } from "lucide-react";
+import { Check, ExternalLink, Linkedin, Mail, Globe, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { toast } from "@/hooks/use-toast";
 
 interface AccountConnectorProps {
   className?: string;
@@ -18,11 +15,9 @@ type Platform = {
   icon: React.ComponentType<{ className?: string }>;
   connected: boolean;
   lastSync?: string;
-  profile?: any;
 };
 
 const AccountConnector = ({ className }: AccountConnectorProps) => {
-  const { isAuthenticated, user } = useAuth();
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: "linkedin",
@@ -62,207 +57,8 @@ const AccountConnector = ({ className }: AccountConnectorProps) => {
       connected: false
     }
   ]);
-  const [loading, setLoading] = useState<string | null>(null);
-
-  // Check LinkedIn connection on load
-  useEffect(() => {
-    if (isAuthenticated) {
-      checkLinkedInConnection();
-    }
-  }, [isAuthenticated]);
-
-  const checkLinkedInConnection = async () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to connect your accounts",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase.functions.invoke('linkedin-integration', {
-        body: { action: 'check_connection' }
-      });
-
-      if (error) throw error;
-
-      // Update LinkedIn platform status
-      setPlatforms(prev => prev.map(platform => 
-        platform.id === "linkedin" 
-          ? { 
-              ...platform, 
-              connected: data.isConnected,
-              lastSync: data.isConnected ? 'Active connection' : undefined,
-              profile: data.profile
-            } 
-          : platform
-      ));
-    } catch (error) {
-      console.error("Error checking LinkedIn connection:", error);
-    }
-  };
-
-  const connectLinkedIn = async () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to connect your accounts",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setLoading("linkedin");
-
-    try {
-      // State parameter for security
-      const state = Math.random().toString(36).substring(2, 15);
-      // Store state in localStorage to verify callback
-      localStorage.setItem('linkedin_oauth_state', state);
-      
-      // Redirect URI - for development/production compatibility
-      const redirectUri = `${window.location.origin}/settings`;
-      
-      // Get authorization URL from our function
-      const { data, error } = await supabase.functions.invoke('linkedin-integration', {
-        body: { 
-          action: 'authorize',
-          redirectUri,
-          state
-        }
-      });
-
-      if (error) throw error;
-      
-      // Redirect user to LinkedIn authorization page
-      window.location.href = data.authUrl;
-    } catch (error) {
-      console.error("Error starting LinkedIn connection:", error);
-      toast({
-        title: "Connection failed",
-        description: "Could not connect to LinkedIn. Please try again.",
-        variant: "destructive"
-      });
-      setLoading(null);
-    }
-  };
-
-  const disconnectLinkedIn = async () => {
-    if (!isAuthenticated) return;
-
-    setLoading("linkedin");
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('linkedin-integration', {
-        body: { action: 'disconnect' }
-      });
-
-      if (error) throw error;
-
-      // Update platform status
-      setPlatforms(prev => prev.map(platform => 
-        platform.id === "linkedin" 
-          ? { ...platform, connected: false, lastSync: undefined, profile: undefined } 
-          : platform
-      ));
-
-      toast({
-        title: "Account disconnected",
-        description: "Your LinkedIn account has been disconnected"
-      });
-    } catch (error) {
-      console.error("Error disconnecting LinkedIn:", error);
-      toast({
-        title: "Disconnection failed",
-        description: "Could not disconnect LinkedIn. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  // Handle OAuth callback from LinkedIn
-  useEffect(() => {
-    const handleLinkedInCallback = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const state = urlParams.get('state');
-      const storedState = localStorage.getItem('linkedin_oauth_state');
-      
-      // Clean URL by removing OAuth params
-      if (code || state) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('code');
-        url.searchParams.delete('state');
-        window.history.replaceState({}, document.title, url.toString());
-      }
-      
-      // Process only if we have a code and state matches
-      if (code && state && state === storedState) {
-        setLoading("linkedin");
-        localStorage.removeItem('linkedin_oauth_state');
-        
-        try {
-          const redirectUri = `${window.location.origin}/settings`;
-          
-          const { data, error } = await supabase.functions.invoke('linkedin-integration', {
-            body: { 
-              action: 'exchange_token',
-              authCode: code,
-              redirectUri
-            }
-          });
-          
-          if (error) throw error;
-          
-          // Update platform status
-          setPlatforms(prev => prev.map(platform => 
-            platform.id === "linkedin" 
-              ? { 
-                  ...platform, 
-                  connected: true,
-                  lastSync: 'Just connected',
-                  profile: data.profile
-                } 
-              : platform
-          ));
-          
-          toast({
-            title: "Account connected",
-            description: `Your LinkedIn account has been connected successfully`
-          });
-        } catch (error) {
-          console.error("Error completing LinkedIn connection:", error);
-          toast({
-            title: "Connection failed",
-            description: "Could not connect to LinkedIn. Please try again.",
-            variant: "destructive"
-          });
-        } finally {
-          setLoading(null);
-        }
-      }
-    };
-    
-    handleLinkedInCallback();
-  }, []);
 
   const toggleConnection = (platformId: string) => {
-    if (platformId === "linkedin") {
-      const linkedInPlatform = platforms.find(p => p.id === "linkedin");
-      
-      if (linkedInPlatform?.connected) {
-        disconnectLinkedIn();
-      } else {
-        connectLinkedIn();
-      }
-      return;
-    }
-    
-    // Handle other platforms (simulated for now)
     setPlatforms(platforms.map(platform => 
       platform.id === platformId 
         ? { 
@@ -309,12 +105,7 @@ const AccountConnector = ({ className }: AccountConnectorProps) => {
                   <p className="font-medium">{platform.name}</p>
                   {platform.connected && platform.lastSync && (
                     <p className="text-xs text-muted-foreground">
-                      {platform.lastSync}
-                    </p>
-                  )}
-                  {platform.connected && platform.profile && platform.id === "linkedin" && (
-                    <p className="text-xs text-muted-foreground">
-                      {platform.profile.name || 'LinkedIn User'}
+                      Last synced: {platform.lastSync}
                     </p>
                   )}
                 </div>
@@ -327,14 +118,8 @@ const AccountConnector = ({ className }: AccountConnectorProps) => {
                   "transition-all",
                   platform.connected && "text-green-600"
                 )}
-                disabled={loading === platform.id}
               >
-                {loading === platform.id ? (
-                  <div className="flex items-center gap-1">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing...
-                  </div>
-                ) : platform.connected ? (
+                {platform.connected ? (
                   <div className="flex items-center gap-1">
                     <Check className="h-4 w-4" />
                     Connected

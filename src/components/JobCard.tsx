@@ -1,223 +1,252 @@
 
-import React, { useState } from 'react';
-import { motion, PanInfo } from 'framer-motion';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Job } from '@/services/jobService';
-import { BriefcaseIcon, MapPin, Building, Clock, Calendar, DollarSign, ExternalLink, ThumbsUp, ThumbsDown } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { useState } from "react";
+import { motion, useMotionValue, useTransform } from "framer-motion";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { BriefcaseIcon, MapPin, Building, Clock, DollarSign, Heart, X, ExternalLink, ChevronDown, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 interface JobCardProps {
-  job: Job;
-  onSwipe: (direction: 'left' | 'right') => void;
-  active?: boolean;
-  matchScore?: number;
+  job: {
+    id: string;
+    title: string;
+    company: string;
+    location: string;
+    salary: string;
+    description: string;
+    requirements: string[];
+    posted: string;
+    type: string;
+    logo?: string;
+    applicationUrl?: string;
+  };
+  onSwipe: (direction: "left" | "right") => void;
+  active: boolean;
 }
 
-const JobCard: React.FC<JobCardProps> = ({ job, onSwipe, active = false, matchScore }) => {
-  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
-  const [isSwiping, setIsSwiping] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
-
-  const handleDragEnd = (_: any, info: PanInfo) => {
-    if (!active) return;
-
-    const swipeThreshold = 100;
-    const direction = info.offset.x > swipeThreshold 
-      ? 'right' 
-      : info.offset.x < -swipeThreshold 
-        ? 'left' 
-        : null;
-
-    if (direction) {
-      setSwipeDirection(direction);
-      setTimeout(() => {
-        onSwipe(direction);
-        setSwipeDirection(null);
-      }, 200);
+const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
+  const [exitX, setExitX] = useState<number | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  
+  // Card motion values
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-200, 200], [-15, 15]);
+  const opacity = useTransform(x, [-150, 0, 150], [0.5, 1, 0.5]);
+  
+  // Indicator opacity based on drag direction
+  const likeOpacity = useTransform(x, [0, 125], [0, 1]);
+  const nopeOpacity = useTransform(x, [-125, 0], [1, 0]);
+  
+  const handleDragEnd = () => {
+    if (x.get() > 100) {
+      setExitX(500);
+      onSwipe("right");
+    } else if (x.get() < -100) {
+      setExitX(-500);
+      onSwipe("left");
     }
   };
 
-  const handleDragStart = () => {
-    if (!active) return;
-    setIsSwiping(true);
+  const handleDetailsClick = () => {
+    setIsOpen(!isOpen);
   };
 
-  const getPostedTimeAgo = () => {
-    try {
-      return formatDistanceToNow(new Date(job.posted), { addSuffix: true });
-    } catch (error) {
-      return 'Recently';
-    }
-  };
-
-  const swipeLeftButton = () => {
-    if (!active) return;
-    setSwipeDirection('left');
-    setTimeout(() => {
-      onSwipe('left');
-      setSwipeDirection(null);
-    }, 200);
-  };
-
-  const swipeRightButton = () => {
-    if (!active) return;
-    setSwipeDirection('right');
-    setTimeout(() => {
-      onSwipe('right');
-      setSwipeDirection(null);
-    }, 200);
-  };
+  if (!active && exitX === null) {
+    return null;
+  }
 
   return (
     <motion.div
-      className={`absolute w-full ${active ? 'z-10' : 'z-0'}`}
-      drag={active ? 'x' : false}
-      dragConstraints={{ left: 0, right: 0 }}
-      onDragStart={handleDragStart}
+      className="absolute inset-0 touch-none"
+      style={{ x, rotate, opacity }}
+      drag={active ? "x" : false}
+      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       onDragEnd={handleDragEnd}
-      animate={{
-        scale: active ? 1 : 0.9,
-        opacity: active ? 1 : 0.6,
-        x: swipeDirection === 'left' ? -1000 : swipeDirection === 'right' ? 1000 : 0,
-        rotateZ: swipeDirection === 'left' ? -20 : swipeDirection === 'right' ? 20 : isSwiping ? Math.min(Math.max(-20, 0), 20) : 0
+      animate={exitX !== null ? { x: exitX } : undefined}
+      transition={{ 
+        type: "spring", 
+        stiffness: 300, 
+        damping: 30,
+        duration: 0.5,
+        ease: "easeOut"
       }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      onAnimationComplete={() => {
+        if (exitX !== null) {
+          x.set(0);
+          setExitX(null); // Reset exitX to null to allow for proper cleanup
+        }
+      }}
     >
-      <Card className="w-full shadow-xl overflow-hidden neo-card">
-        <div className="relative">
-          <div className="absolute top-4 right-4 z-10 flex gap-2">
-            {job.isNew && (
-              <Badge variant="default" className="bg-green-500">New</Badge>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full h-full">
+        <Card className="w-full h-full max-w-md mx-auto overflow-hidden neo-card">
+          {/* Job Image/Logo Header */}
+          <div className="relative h-32 bg-gradient-to-r from-primary/20 to-accent/20 flex items-center justify-center">
+            {job.logo ? (
+              <img src={job.logo} alt={job.company} className="h-16 w-16 object-contain" />
+            ) : (
+              <Building className="h-16 w-16 text-primary/60" />
             )}
-            {matchScore !== undefined && (
-              <Badge variant="outline" className={`
-                ${matchScore >= 80 ? 'bg-green-100 text-green-800 border-green-200' : 
-                  matchScore >= 60 ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                  'bg-gray-100 text-gray-800 border-gray-200'}
-              `}>
-                {matchScore}% Match
-              </Badge>
-            )}
+            
+            {/* Like/Dislike Indicators */}
+            <motion.div 
+              className="absolute top-4 left-4 bg-destructive text-white py-1 px-3 rounded-full text-lg font-bold border-2 border-white rotate-[-20deg]"
+              style={{ opacity: nopeOpacity }}
+            >
+              PASS
+            </motion.div>
+            
+            <motion.div 
+              className="absolute top-4 right-4 bg-green-500 text-white py-1 px-3 rounded-full text-lg font-bold border-2 border-white rotate-[20deg]"
+              style={{ opacity: likeOpacity }}
+            >
+              APPLY
+            </motion.div>
           </div>
           
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-md bg-secondary flex items-center justify-center overflow-hidden">
-                {job.logo ? (
-                  <img 
-                    src={job.logo} 
-                    alt={`${job.company} logo`} 
-                    className="h-10 w-10 object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40?text=' + job.company[0];
-                    }}
-                  />
-                ) : (
-                  <BriefcaseIcon className="h-6 w-6 text-muted-foreground" />
+          <div className="p-5 space-y-4">
+            {/* Job Title & Company */}
+            <div>
+              <h2 className="text-xl font-semibold text-balance line-clamp-2">{job.title}</h2>
+              <div className="flex items-center mt-1 text-muted-foreground">
+                <Building className="h-4 w-4 mr-1" />
+                <span>{job.company}</span>
+              </div>
+            </div>
+            
+            {/* Job Details */}
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4 mr-1" />
+                <span>{job.location}</span>
+              </div>
+              <div className="flex items-center text-sm text-muted-foreground">
+                <DollarSign className="h-4 w-4 mr-1" />
+                <span>{job.salary}</span>
+              </div>
+              <div className="flex items-center text-sm text-muted-foreground">
+                <Clock className="h-4 w-4 mr-1" />
+                <span>{job.posted}</span>
+              </div>
+            </div>
+            
+            {/* Job Type Badge */}
+            <Badge variant="secondary" className="badge-pill">
+              {job.type}
+            </Badge>
+            
+            {/* Description */}
+            <p className="text-sm text-muted-foreground line-clamp-3">
+              {job.description}
+            </p>
+            
+            {/* Requirements */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Key Requirements</h3>
+              <div className="flex flex-wrap gap-2">
+                {job.requirements.slice(0, 3).map((req, i) => (
+                  <Badge key={i} variant="outline" className="badge-pill">
+                    {req}
+                  </Badge>
+                ))}
+                {job.requirements.length > 3 && (
+                  <Badge variant="outline" className="badge-pill">
+                    +{job.requirements.length - 3} more
+                  </Badge>
                 )}
               </div>
-              
-              <div>
-                <h3 className="text-lg font-semibold line-clamp-2">{job.title}</h3>
-                <div className="flex items-center text-muted-foreground">
-                  <Building className="h-3.5 w-3.5 mr-1" />
-                  <span className="text-sm">{job.company}</span>
-                </div>
-              </div>
             </div>
-          </CardHeader>
+          </div>
           
-          <CardContent className="pt-0 pb-4 space-y-4">
-            <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{job.location}</span>
-              </div>
-              
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Clock className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{getPostedTimeAgo()}</span>
-              </div>
-              
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <BriefcaseIcon className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{job.type}</span>
-              </div>
-              
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <DollarSign className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{job.salary || 'Not specified'}</span>
-              </div>
-            </div>
-            
-            <div className={`${showDetails ? '' : 'max-h-20 overflow-hidden relative'}`}>
-              <p className="text-sm text-muted-foreground mb-2">{job.description}</p>
-              
-              {!showDetails && (
-                <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background to-transparent"></div>
-              )}
-            </div>
-            
-            <button 
-              onClick={() => setShowDetails(!showDetails)}
-              className="text-xs text-primary hover:underline focus:outline-none"
+          {/* Action Buttons */}
+          <div className="p-5 pt-0 flex justify-between">
+            <Button 
+              variant="destructive" 
+              size="lg" 
+              className="rounded-full" 
+              onClick={() => {
+                setExitX(-500);
+                onSwipe("left");
+              }}
             >
-              {showDetails ? 'Show less' : 'Show more'}
-            </button>
+              <X className="h-5 w-5" />
+            </Button>
             
-            {showDetails && (
-              <>
-                <div className="pt-2">
-                  <h4 className="text-sm font-medium mb-2">Requirements</h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {job.requirements.map((req, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {req}
-                      </Badge>
-                    ))}
-                  </div>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="outline"
+                size="lg"
+                className="rounded-full"
+                onClick={handleDetailsClick}
+              >
+                {isOpen ? (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                )}
+                <span className="ml-1">Track Application</span>
+              </Button>
+            </CollapsibleTrigger>
+            
+            <Button 
+              variant="default"
+              size="lg" 
+              className="rounded-full bg-green-500 hover:bg-green-600" 
+              onClick={() => {
+                setExitX(500);
+                onSwipe("right");
+              }}
+            >
+              <Heart className="h-5 w-5" />
+            </Button>
+          </div>
+          
+          <CollapsibleContent className="px-5 pb-5">
+            <div className="rounded-md bg-secondary/50 p-4 space-y-3">
+              <h3 className="font-medium">Application Tracking</h3>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Application Status:</span>
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-200">
+                    Applied
+                  </Badge>
                 </div>
                 
-                {job.url && (
-                  <a 
-                    href={job.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center text-sm text-primary hover:underline"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                    View original posting
-                  </a>
-                )}
-              </>
-            )}
-          </CardContent>
-        </div>
-        
-        {active && (
-          <CardFooter className="pt-0 pb-4 px-4 flex justify-between">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="h-12 w-12 rounded-full border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600"
-              onClick={swipeLeftButton}
-            >
-              <ThumbsDown className="h-5 w-5" />
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="h-12 w-12 rounded-full border-green-200 text-green-500 hover:bg-green-50 hover:text-green-600" 
-              onClick={swipeRightButton}
-            >
-              <ThumbsUp className="h-5 w-5" />
-            </Button>
-          </CardFooter>
-        )}
-      </Card>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Date Applied:</span>
+                  <span>May 15, 2023</span>
+                </div>
+                
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Last Updated:</span>
+                  <span>May 17, 2023</span>
+                </div>
+              </div>
+              
+              <div className="pt-2">
+                <Button 
+                  variant="default" 
+                  className="w-full"
+                  onClick={() => {
+                    // Open the application URL if available
+                    if (job.applicationUrl) {
+                      window.open(job.applicationUrl, '_blank');
+                    } else {
+                      window.open('https://example.com/apply', '_blank');
+                    }
+                  }}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  View Full Application
+                </Button>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </motion.div>
   );
 };
