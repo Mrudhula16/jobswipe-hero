@@ -1,44 +1,26 @@
 
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './hooks/useAuth';
+import { AuthProvider } from './hooks/useAuth';
 import { Toaster } from '@/components/ui/toaster';
-import JobSwipe from './pages/JobSwipe'; // Import JobSwipe page
+import JobSwipe from './pages/JobSwipe';
 import JobAgentDashboard from './pages/JobAgentDashboard';
 import AIAgent from './pages/AIAgent';
-import Auth from './pages/Auth';
 import Settings from './pages/Settings';
 import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/Navbar';
 import './App.css';
 
-// Protected route component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
-  
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  }
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/auth" />;
-  }
-  
-  return <>{children}</>;
-};
-
+// Simplified routes without authentication
 function AppRoutes() {
-  const { isAuthenticated } = useAuth();
-
   return (
     <>
-      {isAuthenticated && <Navbar />}
+      <Navbar />
       <Routes>
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/job-swipe" element={<ProtectedRoute><JobSwipe /></ProtectedRoute>} />
-        <Route path="/" element={<ProtectedRoute><JobSwipe /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><JobAgentDashboard /></ProtectedRoute>} />
-        <Route path="/ai-assistant" element={<ProtectedRoute><AIAgent /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/job-swipe" element={<JobSwipe />} />
+        <Route path="/" element={<Navigate to="/job-swipe" />} />
+        <Route path="/profile" element={<JobAgentDashboard />} />
+        <Route path="/ai-assistant" element={<AIAgent />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/job-swipe" />} />
       </Routes>
       <Toaster />

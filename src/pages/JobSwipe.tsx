@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import JobSwiper from '@/components/JobSwiper';
@@ -9,10 +8,6 @@ import { ArrowLeft, Settings, Undo, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import useJobSwiper from '@/hooks/useJobSwiper';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { useAuth } from '@/hooks/useAuth';
-import { useJobAgent } from '@/hooks/useJobAgent';
-import { Skeleton } from '@/components/ui/skeleton';
 import JobCardSkeleton from '@/components/JobCardSkeleton';
 import MotivationalInsights from '@/components/MotivationalInsights';
 import JobAgentConfigDialog from '@/components/JobAgentConfigDialog';
@@ -21,8 +16,6 @@ const JobSwipe = () => {
   const [activeTab, setActiveTab] = useState<string>("swiper");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { toast } = useToast();
-  const { user, isAuthenticated } = useAuth();
-  const { isActive: isAgentActive, isLoading: isAgentLoading, toggleJobAgent } = useJobAgent();
   
   const {
     jobs,
@@ -37,34 +30,8 @@ const JobSwipe = () => {
     canUndo
   } = useJobSwiper();
 
-  const [showTutorial, setShowTutorial] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false); // Set to false to skip tutorial
   
-  // Check if it's the user's first time using the app
-  useEffect(() => {
-    const tutorialSeen = localStorage.getItem('jobSwipeTutorialSeen');
-    if (tutorialSeen) {
-      setShowTutorial(false);
-    }
-  }, []);
-
-  const handleDismissTutorial = () => {
-    localStorage.setItem('jobSwipeTutorialSeen', 'true');
-    setShowTutorial(false);
-  };
-
-  const handleToggleAgent = async () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Sign in required",
-        description: "Please sign in to use the Job Agent feature",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    await toggleJobAgent();
-  };
-
   const handleResetJobs = () => {
     resetJobs();
     toast({
@@ -73,44 +40,15 @@ const JobSwipe = () => {
     });
   };
 
-  // Tutorial dialog
-  const renderTutorial = () => (
-    <Dialog open={showTutorial} onOpenChange={setShowTutorial}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Welcome to JobSwipe</DialogTitle>
-          <DialogDescription>
-            Find your dream job with just a swipe!
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <h4 className="font-medium">How it works:</h4>
-            <ul className="list-disc pl-5 space-y-2 text-sm">
-              <li>Swipe right on jobs you like to apply</li>
-              <li>Swipe left to skip jobs</li>
-              <li>Use filters to find specific roles</li>
-              <li>Enable Job Agent to automatically apply to matching jobs</li>
-            </ul>
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <Button onClick={handleDismissTutorial}>Got it</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
   // Main content renderer based on conditions
   const renderContent = () => {
     if (isLoading) {
       return (
         <div className="space-y-6 p-4">
-          <Skeleton className="h-12 w-full" />
           <JobCardSkeleton />
           <div className="flex justify-center space-x-4 mt-4">
-            <Skeleton className="h-12 w-12 rounded-full" />
-            <Skeleton className="h-12 w-12 rounded-full" />
+            <div className="h-12 w-12 rounded-full bg-gray-200 animate-pulse"></div>
+            <div className="h-12 w-12 rounded-full bg-gray-200 animate-pulse"></div>
           </div>
         </div>
       );
@@ -167,8 +105,8 @@ const JobSwipe = () => {
   };
 
   return (
+    
     <div className="container max-w-4xl py-6 space-y-6">
-      {renderTutorial()}
       
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">JobSwipe</h1>
