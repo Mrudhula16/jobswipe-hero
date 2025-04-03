@@ -10,7 +10,6 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/Navbar';
 import './App.css';
 
-// Simplified routes without authentication
 function AppRoutes() {
   return (
     <>
