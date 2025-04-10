@@ -37,7 +37,7 @@ export const getJobs = async (count: number = 5): Promise<Job[]> => {
     // First try to use our LinkedIn scraper
     try {
       const { data: scrapedData, error: scrapedError } = await supabase.functions.invoke('linkedin-scraper', {
-        body: { keywords: 'software engineer', limit: count }
+        body: { keywords: 'software engineer', location: 'India', limit: count }
       });
       
       if (!scrapedError && scrapedData?.jobs?.length > 0) {
@@ -69,7 +69,7 @@ export const getMoreJobs = async (lastJobId: string, count: number = 3): Promise
     // First try to use our LinkedIn scraper
     try {
       const { data: scrapedData, error: scrapedError } = await supabase.functions.invoke('linkedin-scraper', {
-        body: { keywords: 'software engineer', limit: count }
+        body: { keywords: 'software engineer', location: 'India', limit: count }
       });
       
       if (!scrapedError && scrapedData?.jobs?.length > 0) {
@@ -99,7 +99,7 @@ export const getFilteredJobs = async (filters: any): Promise<Job[]> => {
   try {
     // Extract query and location from filters
     const query = filters.job_function?.[0] || filters.jobType?.[0] || "software engineer";
-    const location = filters.location || "";
+    const location = filters.location || "India";
     
     // First try to use our LinkedIn scraper
     try {
@@ -188,7 +188,7 @@ export const applyToJob = async (jobDetails: Job): Promise<boolean> => {
 };
 
 // Fetch job filter categories and options from the database
-export const getJobFilterCategories = async (): Promise<FilterCategory[]> => {
+export const getJobFilterCategories = async (): Promise<import("@/hooks/useJobFilters").FilterCategory[]> => {
   try {
     // This function is now implemented in the useJobFilters hook
     const { filterCategories } = useJobFilters();
@@ -200,7 +200,7 @@ export const getJobFilterCategories = async (): Promise<FilterCategory[]> => {
 };
 
 // Get options for a specific category
-export const getFilterOptionsByCategory = async (categoryName: string): Promise<FilterOption[]> => {
+export const getFilterOptionsByCategory = async (categoryName: string): Promise<import("@/hooks/useJobFilters").FilterOption[]> => {
   try {
     // This function is now implemented in the useJobFilters hook
     const { getOptionsByCategory } = useJobFilters();

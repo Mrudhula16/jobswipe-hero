@@ -38,7 +38,8 @@ serve(async (req) => {
   }
 
   try {
-    const { keywords = 'software engineer', location = '', limit = 10 } = await req.json();
+    // Default to software engineer in India if no parameters provided
+    const { keywords = 'software engineer', location = 'India', limit = 10 } = await req.json();
 
     console.log(`Scraping LinkedIn jobs with keywords: ${keywords}, location: ${location}, limit: ${limit}`);
 
@@ -83,7 +84,13 @@ async function scrapeLinkedInJobs(options: ScrapeOptions): Promise<Job[]> {
   await page.setViewport({ width: 1366, height: 768 });
 
   try {
-    const searchUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(options.keywords)}${options.location ? `&location=${encodeURIComponent(options.location)}` : ''}`;
+    // Always append India to the location if not already specified
+    let searchLocation = options.location || 'India';
+    if (!searchLocation.toLowerCase().includes('india') && searchLocation.trim() !== '') {
+      searchLocation = `${searchLocation}, India`;
+    }
+    
+    const searchUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(options.keywords)}&location=${encodeURIComponent(searchLocation)}`;
     console.log(`Navigating to: ${searchUrl}`);
     await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 60000 });
     console.log("Page loaded, scrolling to load more jobs");

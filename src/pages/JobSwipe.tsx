@@ -5,10 +5,8 @@ import JobCardSkeleton from "@/components/JobCardSkeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Command, CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { 
   BriefcaseIcon, Filter, ArrowLeft, ArrowRight, Bookmark, Clock, Zap, Building, MapPin, 
   GraduationCap, Banknote, Timer, Globe, CalendarDays, Search, X, Heart, ChevronDown, Check, 
@@ -25,6 +23,7 @@ import { JobAgentConfigDialog } from "@/components/JobAgentConfig";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import JobAgentConfig from "@/components/JobAgentConfig";
 import JobFilters from "@/components/JobFilters";
+import IndianCitiesAutocomplete from "@/components/IndianCitiesAutocomplete";
 
 const JobSwipe = () => {
   const { toast } = useToast();
@@ -70,7 +69,6 @@ const JobSwipe = () => {
   };
 
   const handleJobFiltersChange = (newFilters: Record<string, string[]>) => {
-    // Map the database filter format to our application format
     setFilters(prev => ({
       ...prev,
       jobType: newFilters['job_type'] || [],
@@ -84,8 +82,6 @@ const JobSwipe = () => {
   const applyJobFilters = async (formattedFilters?: Record<string, any>) => {
     setIsFiltering(true);
     try {
-      // If formatted filters are provided directly, use them
-      // Otherwise use our current filters state
       const filtersToApply = formattedFilters || {
         jobType: filters.jobType,
         experienceLevel: filters.experienceLevel,
@@ -254,63 +250,19 @@ const JobSwipe = () => {
                 </Button>
               </div>
               <div className="p-4 space-y-5">
-                {/* Replace with our new JobFilters component */}
                 <JobFilters 
                   onFilterChange={handleJobFiltersChange} 
                   onApplyFilters={applyJobFilters}
                   isFiltering={isFiltering}
                 />
                 
-                {/* Keep the location search input separate */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Location</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <input 
-                          type="text" 
-                          placeholder="City, state, or zip code" 
-                          className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
-                          readOnly
-                          value={filters.location}
-                        />
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80 p-0" align="start">
-                        <Command>
-                          <CommandInput placeholder="Search location..." />
-                          <CommandList>
-                            <CommandEmpty>No locations found.</CommandEmpty>
-                            <CommandGroup heading="Popular Cities">
-                              <CommandItem onSelect={() => handleFilterChange("location", "Remote")}>
-                                Remote
-                              </CommandItem>
-                              <CommandItem onSelect={() => handleFilterChange("location", "New York, NY")}>
-                                New York, NY
-                              </CommandItem>
-                              <CommandItem onSelect={() => handleFilterChange("location", "San Francisco, CA")}>
-                                San Francisco, CA
-                              </CommandItem>
-                              <CommandItem onSelect={() => handleFilterChange("location", "Seattle, WA")}>
-                                Seattle, WA
-                              </CommandItem>
-                              <CommandItem onSelect={() => handleFilterChange("location", "Austin, TX")}>
-                                Austin, TX
-                              </CommandItem>
-                              <CommandItem onSelect={() => handleFilterChange("location", "Chicago, IL")}>
-                                Chicago, IL
-                              </CommandItem>
-                              <CommandItem onSelect={() => handleFilterChange("location", "Boston, MA")}>
-                                Boston, MA
-                              </CommandItem>
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+                  <label className="text-sm font-medium">Location in India</label>
+                  <IndianCitiesAutocomplete 
+                    value={filters.location}
+                    onChange={(city) => handleFilterChange("location", city)}
+                    placeholder="Search for a city in India"
+                  />
                   <div className="flex items-center gap-2 mt-1">
                     <Toggle 
                       size="sm" 
@@ -375,7 +327,7 @@ const JobSwipe = () => {
                 </div>
               </div>
               <p className="text-sm text-muted-foreground mb-3">
-                Let our AI agent automatically apply to jobs that match your profile and preferences.
+                Let our AI agent automatically apply to jobs in India that match your profile and preferences.
               </p>
               <div className="space-y-2">
                 <Button 
@@ -411,7 +363,7 @@ const JobSwipe = () => {
                     <DialogHeader>
                       <DialogTitle>Job Agent Configuration</DialogTitle>
                       <DialogDescription>
-                        Configure your AI-powered job agent to automatically find and apply to matching jobs.
+                        Configure your AI-powered job agent to automatically find and apply to matching jobs in India.
                       </DialogDescription>
                     </DialogHeader>
                     <JobAgentConfig onClose={() => setShowAgentConfig(false)} />
@@ -441,7 +393,7 @@ const JobSwipe = () => {
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       <JobCardSkeleton />
                       <p className="text-center mt-4 text-muted-foreground animate-pulse">
-                        Loading jobs...
+                        Loading jobs from India...
                       </p>
                     </div>
                   ) : noMoreJobs ? (

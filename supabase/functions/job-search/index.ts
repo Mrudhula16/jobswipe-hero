@@ -27,7 +27,8 @@ serve(async (req) => {
       
       // Extract query and location from filters
       const query = filters.job_function?.[0] || filters.jobType?.[0] || "";
-      const location = filters.location || "";
+      // Default to India if no location is specified
+      const location = filters.location || "India";
       
       try {
         // First try to use our LinkedIn scraper
