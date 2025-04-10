@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { 
-  Menu, X, Home, BarChart2, Search, User, BriefcaseIcon, 
-  FileText, LogIn
+  Menu, X, Home, BarChart2, Search, User, LogIn
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -30,7 +29,11 @@ const Navbar = () => {
               to="/" 
               className="flex items-center space-x-2"
             >
-              <BriefcaseIcon className="h-8 w-8 text-primary" />
+              <img 
+                src="/lovable-uploads/8d38c923-ec5e-499c-ae7e-32fa15b86a63.png" 
+                alt="TyranAI Logo" 
+                className="h-8 w-8"
+              />
               <span className="text-xl font-semibold">TyranAI</span>
             </Link>
           </div>
