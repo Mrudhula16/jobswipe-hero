@@ -1,7 +1,8 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CircleProgress } from "@/components/ui/progress";
+import { Progress } from "@/components/ui/progress";
 import { 
   FileText, RefreshCw, Settings, LinkedinIcon, Target, 
   CheckCircle2, AlertTriangle, XCircle
@@ -37,11 +38,26 @@ export default function AnalysisTabs({
         </Tabs>
 
         <div className="flex items-center space-x-2">
-          <CircleProgress
-            value={matchScore}
-            max={100}
-            className="h-10 w-10"
-          />
+          <div className="relative h-10 w-10">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-sm font-semibold">{matchScore}%</span>
+            </div>
+            <svg className="h-10 w-10" viewBox="0 0 36 36">
+              <path
+                className="stroke-current text-primary opacity-25"
+                fill="none"
+                strokeWidth="3"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+              <path
+                className="stroke-current text-primary"
+                fill="none"
+                strokeWidth="3"
+                strokeDasharray={`${matchScore}, 100`}
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+            </svg>
+          </div>
           <span className="text-sm text-muted-foreground">Match Score</span>
         </div>
       </div>
