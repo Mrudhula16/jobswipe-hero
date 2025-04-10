@@ -1,3 +1,4 @@
+
 // Job service to fetch real job data and manage job interactions
 
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +21,8 @@ export interface Job {
   applicationUrl?: string;
   source?: string;
   sourceId?: string;
+  isRemote?: boolean;
+  postedDate?: string;
 }
 
 // Re-export these types from the useJobFilters hook
@@ -31,6 +34,21 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // Get initial batch of jobs
 export const getJobs = async (count: number = 5): Promise<Job[]> => {
   try {
+    // First try to use our LinkedIn scraper
+    try {
+      const { data: scrapedData, error: scrapedError } = await supabase.functions.invoke('linkedin-scraper', {
+        body: { keywords: 'software engineer', limit: count }
+      });
+      
+      if (!scrapedError && scrapedData?.jobs?.length > 0) {
+        console.log("Successfully retrieved jobs from LinkedIn scraper:", scrapedData.jobs.length);
+        return scrapedData.jobs;
+      }
+    } catch (scrapeError) {
+      console.warn("LinkedIn scraper failed, falling back to mock data:", scrapeError);
+    }
+    
+    // Fallback to mock data
     const { data, error } = await supabase.functions.invoke('linkedin-jobs', {
       body: { action: 'search', count, source: "linkedin" }
     });
@@ -48,6 +66,21 @@ export const getJobs = async (count: number = 5): Promise<Job[]> => {
 // Get more jobs (pagination simulation)
 export const getMoreJobs = async (lastJobId: string, count: number = 3): Promise<Job[]> => {
   try {
+    // First try to use our LinkedIn scraper
+    try {
+      const { data: scrapedData, error: scrapedError } = await supabase.functions.invoke('linkedin-scraper', {
+        body: { keywords: 'software engineer', limit: count }
+      });
+      
+      if (!scrapedError && scrapedData?.jobs?.length > 0) {
+        console.log("Successfully retrieved more jobs from LinkedIn scraper");
+        return scrapedData.jobs;
+      }
+    } catch (scrapeError) {
+      console.warn("LinkedIn scraper failed for pagination, falling back to mock data:", scrapeError);
+    }
+    
+    // Fallback to mock data
     const { data, error } = await supabase.functions.invoke('linkedin-jobs', {
       body: { action: 'search', lastJobId, count, source: "linkedin" }
     });
@@ -65,9 +98,28 @@ export const getMoreJobs = async (lastJobId: string, count: number = 3): Promise
 export const getFilteredJobs = async (filters: any): Promise<Job[]> => {
   try {
     // Extract query and location from filters
-    const query = filters.job_function?.[0] || filters.jobType?.[0] || "";
+    const query = filters.job_function?.[0] || filters.jobType?.[0] || "software engineer";
     const location = filters.location || "";
     
+    // First try to use our LinkedIn scraper
+    try {
+      const { data: scrapedData, error: scrapedError } = await supabase.functions.invoke('linkedin-scraper', {
+        body: { 
+          keywords: query,
+          location: location,
+          limit: 10
+        }
+      });
+      
+      if (!scrapedError && scrapedData?.jobs?.length > 0) {
+        console.log("Successfully retrieved filtered jobs from LinkedIn scraper");
+        return scrapedData.jobs;
+      }
+    } catch (scrapeError) {
+      console.warn("LinkedIn scraper failed for filtered jobs, falling back to mock data:", scrapeError);
+    }
+    
+    // Fallback to mock data
     const { data, error } = await supabase.functions.invoke('linkedin-jobs', {
       body: { 
         action: 'search', 

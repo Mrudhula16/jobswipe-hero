@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { BriefcaseIcon, MapPin, Building, Clock, DollarSign, Heart, X, ExternalLink, ChevronDown, ChevronRight } from "lucide-react";
+import { BriefcaseIcon, MapPin, Building, Clock, DollarSign, Heart, X, ExternalLink, ChevronDown, ChevronRight, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 
@@ -22,6 +22,8 @@ interface JobCardProps {
     type: string;
     logo?: string;
     applicationUrl?: string;
+    applyUrl?: string;
+    isRemote?: boolean;
   };
   onSwipe: (direction: "left" | "right") => void;
   active: boolean;
@@ -54,6 +56,13 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
     setIsOpen(!isOpen);
   };
 
+  // Format logo URL to ensure it's valid
+  const logoUrl = job.logo && (
+    job.logo.startsWith('http') ? job.logo : `https://logo.clearbit.com/${job.company.toLowerCase().replace(/\s+/g, '')}.com`
+  );
+
+  const applicationUrl = job.applicationUrl || job.applyUrl || `https://linkedin.com/jobs/view/${job.id}`;
+
   if (!active && exitX === null) {
     return null;
   }
@@ -84,10 +93,28 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
         <Card className="w-full h-full max-w-md mx-auto overflow-hidden neo-card">
           {/* Job Image/Logo Header */}
           <div className="relative h-32 bg-gradient-to-r from-primary/20 to-accent/20 flex items-center justify-center">
-            {job.logo ? (
-              <img src={job.logo} alt={job.company} className="h-16 w-16 object-contain" />
+            {logoUrl ? (
+              <img 
+                src={logoUrl} 
+                alt={job.company} 
+                className="h-16 w-16 object-contain bg-white p-1 rounded-md"
+                onError={(e) => {
+                  // If image fails to load, replace with default icon
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    const icon = document.createElement('div');
+                    icon.className = "h-16 w-16 bg-white rounded-md flex items-center justify-center";
+                    icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>';
+                    parent.appendChild(icon);
+                  }
+                }}
+              />
             ) : (
-              <Building className="h-16 w-16 text-primary/60" />
+              <div className="h-16 w-16 bg-white rounded-md flex items-center justify-center">
+                <Building className="h-8 w-8 text-primary" />
+              </div>
             )}
             
             {/* Like/Dislike Indicators */}
@@ -121,6 +148,11 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
               <div className="flex items-center text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4 mr-1" />
                 <span>{job.location}</span>
+                {job.isRemote && (
+                  <Badge variant="secondary" className="ml-2 bg-green-500/10 text-green-600 border-green-200">
+                    <Globe className="h-3 w-3 mr-1" /> Remote
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center text-sm text-muted-foreground">
                 <DollarSign className="h-4 w-4 mr-1" />
@@ -146,12 +178,12 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Key Requirements</h3>
               <div className="flex flex-wrap gap-2">
-                {job.requirements.slice(0, 3).map((req, i) => (
+                {job.requirements && job.requirements.slice(0, 3).map((req, i) => (
                   <Badge key={i} variant="outline" className="badge-pill">
                     {req}
                   </Badge>
                 ))}
-                {job.requirements.length > 3 && (
+                {job.requirements && job.requirements.length > 3 && (
                   <Badge variant="outline" className="badge-pill">
                     +{job.requirements.length - 3} more
                   </Badge>
@@ -217,12 +249,12 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
                 
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Date Applied:</span>
-                  <span>May 15, 2023</span>
+                  <span>{new Date().toLocaleDateString()}</span>
                 </div>
                 
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Last Updated:</span>
-                  <span>May 17, 2023</span>
+                  <span>{new Date().toLocaleDateString()}</span>
                 </div>
               </div>
               
@@ -232,10 +264,10 @@ const JobCard = ({ job, onSwipe, active }: JobCardProps) => {
                   className="w-full"
                   onClick={() => {
                     // Open the application URL if available
-                    if (job.applicationUrl) {
-                      window.open(job.applicationUrl, '_blank');
+                    if (applicationUrl) {
+                      window.open(applicationUrl, '_blank');
                     } else {
-                      window.open('https://example.com/apply', '_blank');
+                      window.open('https://linkedin.com', '_blank');
                     }
                   }}
                 >
