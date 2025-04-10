@@ -277,10 +277,10 @@ const Index = () => {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center mb-4 md:mb-0">
               <BriefcaseIcon className="h-6 w-6 text-primary mr-2" />
-              <span className="text-lg font-semibold">Employed</span>
+              <span className="text-lg font-semibold">TyranAI</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Employed. All rights reserved.
+              © {new Date().getFullYear()} TyranAI. All rights reserved.
             </div>
           </div>
         </div>

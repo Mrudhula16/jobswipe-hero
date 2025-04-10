@@ -31,7 +31,7 @@ const Navbar = () => {
               className="flex items-center space-x-2"
             >
               <BriefcaseIcon className="h-8 w-8 text-primary" />
-              <span className="text-xl font-semibold">Employed</span>
+              <span className="text-xl font-semibold">TyranAI</span>
             </Link>
           </div>
           
